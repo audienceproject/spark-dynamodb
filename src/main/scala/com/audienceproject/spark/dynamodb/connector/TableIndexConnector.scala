@@ -20,17 +20,14 @@
   */
 package com.audienceproject.spark.dynamodb.connector
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
 import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec
-import com.amazonaws.services.dynamodbv2.document.{DynamoDB, ItemCollection, ScanOutcome}
+import com.amazonaws.services.dynamodbv2.document.{ItemCollection, ScanOutcome}
 import com.amazonaws.services.dynamodbv2.model.ReturnConsumedCapacity
 
 import scala.collection.JavaConverters._
 
 private[dynamodb] class TableIndexConnector(tableName: String, indexName: String, totalSegments: Int, parameters: Map[String, String])
     extends DynamoConnector with Serializable {
-
-    def getClient: DynamoDB = new DynamoDB(AmazonDynamoDBClientBuilder.defaultClient())
 
     private val consistentRead = parameters.getOrElse("stronglyConsistentReads", "false").toBoolean
 
