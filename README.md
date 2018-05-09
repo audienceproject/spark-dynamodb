@@ -1,6 +1,16 @@
 # Spark+DynamoDB
 Plug-and-play implementation of an Apache Spark custom data source for AWS DynamoDB.
 
+## Features
+
+- Distributed, parallel scan with lazy evaluation
+- Throughput control by rate limiting on target fraction of provisioned table/index capacity
+- Schema discovery to suit your needs
+  - Dynamic inference
+  - Static analysis of case class
+- Column and filter pushdown
+- Global secondary index support
+
 ## Parameters
 The following parameters can be set as options on the Spark reader object before loading.
 
