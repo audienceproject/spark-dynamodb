@@ -29,7 +29,7 @@ case class Vegetable (name: String, color: String, @attribute("weight_kg") weigh
 // Load a Dataset[Vegetable]. Notice the @attribute annotation on the case class - we imagine the weight attribute is named with an underscore in DynamoDB.
 import org.apache.spark.sql.functions._
 import spark.implicits._
-val vegetableDs = spark.dynamodbAs[Vegetable]("VegetableTable")
+val vegetableDs = spark.dynamodbAs[Vegetable]("VegeTable")
 val avgWeightByColor = vegetableDs.agg($"color", avg($"weightKg")) // The column is now called 'weightKg' in the Dataset.
 ```
 
