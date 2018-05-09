@@ -11,6 +11,28 @@ Plug-and-play implementation of an Apache Spark custom data source for AWS Dynam
 - Column and filter pushdown
 - Global secondary index support
 
+## Quick Start Guide
+
+```scala
+import com.audienceproject.spark.dynamodb.implicits._
+
+// Load a DataFrame from a Dynamo table. Only incurs the cost of a single scan for schema inference.
+val dynamoDf = spark.dynamodb("SomeTableName") // <-- DataFrame of Row objects with inferred schema.
+
+// Scan the table for the first 100 items (the order is arbitrary) and print them.
+dynamoDf.show(100)
+
+// Case class representing the items in our table.
+import com.audienceproject.spark.dynamodb.attribute
+case class Vegetable (name: String, color: String, @attribute("weight_kg") weightKg: Double)
+
+// Load a DataSet[Vegetable]. Notice the @attribute annotation on the case class - we imagine the weight attribute is named with an underscore in DynamoDB.
+import org.apache.spark.sql.functions._
+import spark.implicits._
+val vegetableDs = spark.dynamodbAs[Vegetable]("VegetableTable")
+val avgWeightByColor = vegetableDs.agg($"color", avg($"weightKg")) // The column is now called 'weightKg' in the Dataset.
+```
+
 ## Parameters
 The following parameters can be set as options on the Spark reader object before loading.
 
