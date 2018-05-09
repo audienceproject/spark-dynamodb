@@ -18,7 +18,7 @@
   *
   * Copyright © 2018 AudienceProject. All rights reserved.
   */
-package com.audienceproject.spark.datasources.dynamodb.rdd
+package com.audienceproject.spark.dynamodb.rdd
 
 import org.apache.spark.sql.sources._
 

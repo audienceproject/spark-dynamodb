@@ -18,26 +18,8 @@
   *
   * Copyright © 2018 AudienceProject. All rights reserved.
   */
-package com.audienceproject.spark.datasources.dynamodb.connector
+package com.audienceproject.spark.dynamodb
 
-import com.amazonaws.services.dynamodbv2.document.{ItemCollection, ScanOutcome}
+import scala.annotation.StaticAnnotation
 
-private[dynamodb] trait DynamoConnector {
-
-    val hashKey: String
-
-    val rangeKey: Option[String]
-
-    val rateLimit: Int
-
-    val itemLimit: Int
-
-    val totalSizeInBytes: Long
-
-    def scan(segmentNum: Int): ItemCollection[ScanOutcome]
-
-    def scan(segmentNum: Int, projectionExpression: String): ItemCollection[ScanOutcome]
-
-    def scan(segmentNum: Int, projectionExpression: String, filterExpression: String): ItemCollection[ScanOutcome]
-
-}
+final case class attribute(name: String) extends StaticAnnotation

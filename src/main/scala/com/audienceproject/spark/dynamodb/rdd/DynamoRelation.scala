@@ -18,9 +18,9 @@
   *
   * Copyright © 2018 AudienceProject. All rights reserved.
   */
-package com.audienceproject.spark.datasources.dynamodb.rdd
+package com.audienceproject.spark.dynamodb.rdd
 
-import com.audienceproject.spark.datasources.dynamodb.connector.{TableConnector, TableIndexConnector}
+import com.audienceproject.spark.dynamodb.connector.{TableConnector, TableIndexConnector}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._

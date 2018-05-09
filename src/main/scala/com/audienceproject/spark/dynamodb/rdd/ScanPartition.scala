@@ -18,11 +18,11 @@
   *
   * Copyright © 2018 AudienceProject. All rights reserved.
   */
-package com.audienceproject.spark.datasources.dynamodb.rdd
+package com.audienceproject.spark.dynamodb.rdd
 
 import com.amazonaws.services.dynamodbv2.document.Item
 import com.amazonaws.services.dynamodbv2.model.ConsumedCapacity
-import com.audienceproject.spark.datasources.dynamodb.connector.DynamoConnector
+import com.audienceproject.spark.dynamodb.connector.DynamoConnector
 import org.apache.spark.Partition
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.{StructField, StructType}

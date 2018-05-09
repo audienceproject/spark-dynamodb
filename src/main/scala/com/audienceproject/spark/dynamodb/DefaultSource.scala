@@ -18,25 +18,22 @@
   *
   * Copyright © 2018 AudienceProject. All rights reserved.
   */
-package com.audienceproject.spark.datasources.dynamodb.rdd
+package com.audienceproject.spark.dynamodb
 
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.Row
+import com.audienceproject.spark.dynamodb.rdd.DynamoRelation
+import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.sources.{BaseRelation, RelationProvider, SchemaRelationProvider}
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.{Partition, SparkContext, TaskContext}
 
-private[dynamodb] class DynamoRDD(sc: SparkContext,
-                                  schema: StructType,
-                                  scanPartitions: Seq[ScanPartition],
-                                  requiredColumns: Seq[String] = Seq.empty,
-                                  filterExpression: Option[String] = None)
-    extends RDD[Row](sc, Nil) {
+class DefaultSource extends RelationProvider with SchemaRelationProvider {
 
-    override def compute(split: Partition, context: TaskContext): Iterator[Row] = {
-        val scanPartition = split.asInstanceOf[ScanPartition]
-        scanPartition.scanTable(requiredColumns, filterExpression)
+    override def createRelation(sqlContext: SQLContext, parameters: Map[String, String]): BaseRelation = {
+        createRelation(sqlContext, parameters, null)
     }
 
-    override protected def getPartitions: Array[Partition] = scanPartitions.toArray
+    override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
+                                schema: StructType): BaseRelation = {
+        new DynamoRelation(schema, parameters)(sqlContext)
+    }
 
 }

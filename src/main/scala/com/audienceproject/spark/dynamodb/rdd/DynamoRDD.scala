@@ -18,22 +18,25 @@
   *
   * Copyright © 2018 AudienceProject. All rights reserved.
   */
-package com.audienceproject.spark.datasources.dynamodb
+package com.audienceproject.spark.dynamodb.rdd
 
-import com.audienceproject.spark.datasources.dynamodb.rdd.DynamoRelation
-import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.sources.{BaseRelation, RelationProvider, SchemaRelationProvider}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.{Partition, SparkContext, TaskContext}
 
-class DefaultSource extends RelationProvider with SchemaRelationProvider {
+private[dynamodb] class DynamoRDD(sc: SparkContext,
+                                  schema: StructType,
+                                  scanPartitions: Seq[ScanPartition],
+                                  requiredColumns: Seq[String] = Seq.empty,
+                                  filterExpression: Option[String] = None)
+    extends RDD[Row](sc, Nil) {
 
-    override def createRelation(sqlContext: SQLContext, parameters: Map[String, String]): BaseRelation = {
-        createRelation(sqlContext, parameters, null)
+    override def compute(split: Partition, context: TaskContext): Iterator[Row] = {
+        val scanPartition = split.asInstanceOf[ScanPartition]
+        scanPartition.scanTable(requiredColumns, filterExpression)
     }
 
-    override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
-                                schema: StructType): BaseRelation = {
-        new DynamoRelation(schema, parameters)(sqlContext)
-    }
+    override protected def getPartitions: Array[Partition] = scanPartitions.toArray
 
 }

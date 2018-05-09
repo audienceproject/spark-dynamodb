@@ -18,9 +18,9 @@
   *
   * Copyright © 2018 AudienceProject. All rights reserved.
   */
-package com.audienceproject.spark.datasources.dynamodb.reflect
+package com.audienceproject.spark.dynamodb.reflect
 
-import com.audienceproject.spark.datasources.dynamodb.attribute
+import com.audienceproject.spark.dynamodb.attribute
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.types.{Metadata, MetadataBuilder, StructField, StructType}
 
