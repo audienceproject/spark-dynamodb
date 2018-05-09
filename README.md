@@ -26,7 +26,7 @@ dynamoDf.show(100)
 import com.audienceproject.spark.dynamodb.attribute
 case class Vegetable (name: String, color: String, @attribute("weight_kg") weightKg: Double)
 
-// Load a DataSet[Vegetable]. Notice the @attribute annotation on the case class - we imagine the weight attribute is named with an underscore in DynamoDB.
+// Load a Dataset[Vegetable]. Notice the @attribute annotation on the case class - we imagine the weight attribute is named with an underscore in DynamoDB.
 import org.apache.spark.sql.functions._
 import spark.implicits._
 val vegetableDs = spark.dynamodbAs[Vegetable]("VegetableTable")
