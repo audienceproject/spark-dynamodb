@@ -40,3 +40,10 @@ The following parameters can be set as options on the Spark reader object before
 - `targetCapacity` fraction of provisioned read capacity on the table (or index) to consume for reading. Default 1 (i.e. 100% capacity).
 - `stronglyConsistentReads` whether or not to use strongly consistent reads. Default false.
 - `bytesPerRCU` number of bytes that can be read per second with a single Read Capacity Unit. Default 4000 (4 KB). This value is multiplied by two when `stronglyConsistentReads=false`
+
+## Running Unit Tests
+The unit tests are dependent on the AWS DynamoDBLocal client, which in turn is dependent on [sqlite4java](https://bitbucket.org/almworks/sqlite4java/src/master/). I had some problems running this on OSX, so I had to put the library directly in the /lib folder, as graciously explained in [this Stack Overflow answer](https://stackoverflow.com/questions/34137043/amazon-dynamodb-local-unknown-error-exception-or-failure/35353377#35353377).
+
+In order to run the tests, make sure to put the following as additional VM parameters:
+
+```-Djava.library.path=./lib/sqlite4java -Daws.dynamodb.endpoint=http://localhost:8000```
