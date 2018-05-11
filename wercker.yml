@@ -1,0 +1,25 @@
+box: bigtruedata/sbt:0.13.15-2.11
+
+build:
+  steps:
+    - script:
+      name: Compile
+      code: |
+        sbt clean compile
+
+publish-snapshot:
+  steps:
+    - audienceproject/sbt-to-maven-central@1.0.1:
+      user: $NEXUS_USER
+      password: $NEXUS_PASSWORD
+      private-key: $NEXUS_PK
+      passphrase: $NEXUS_PASSPHRASE
+
+publish-release:
+  steps:
+    - audienceproject/sbt-to-maven-central@1.0.1:
+      user: $NEXUS_USER
+      password: $NEXUS_PASSWORD
+      private-key: $NEXUS_PK
+      passphrase: $NEXUS_PASSPHRASE
+      destination: RELEASE
