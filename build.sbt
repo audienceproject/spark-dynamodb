@@ -4,6 +4,8 @@ name := "spark-dynamodb"
 
 version := "0.1"
 
+description := "Plug-and-play implementation of an Apache Spark custom data source for AWS DynamoDB."
+
 scalaVersion := "2.11.12"
 
 resolvers += "DynamoDBLocal" at "https://s3-us-west-2.amazonaws.com/dynamodb-local/release"
