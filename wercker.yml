@@ -9,6 +9,21 @@ build:
 
 publish-snapshot:
   steps:
+    - script:
+      name: Keygen
+      code: |
+        mkdir -p ~/.sbt/0.13/plugins/
+        touch ~/.sbt/0.13/plugins/plugins.sbt
+        echo 'addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.0.0")' >> ~/.sbt/0.13/plugins/plugins.sbt
+        touch .keygen
+        echo 'set pgpReadOnly := false' >> .keygen
+        echo 'pgp-cmd gen-key' >> .keygen
+        echo '$NEXUS_USER' >> .keygen
+        echo '$NEXUS_EMAIL' >> .keygen
+        echo '$NEXUS_PASSPHRASE' >> .keygen
+        echo '$NEXUS_PASSPHRASE' >> .keygen
+        sbt < .keygen
+        rm .keygen
     - audienceproject/sbt-to-maven-central@1.0.1:
       user: $NEXUS_USER
       password: $NEXUS_PASSWORD
@@ -17,6 +32,21 @@ publish-snapshot:
 
 publish-release:
   steps:
+    - script:
+      name: Keygen
+      code: |
+        mkdir -p ~/.sbt/0.13/plugins/
+        touch ~/.sbt/0.13/plugins/plugins.sbt
+        echo 'addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.0.0")' >> ~/.sbt/0.13/plugins/plugins.sbt
+        touch .keygen
+        echo 'set pgpReadOnly := false' >> .keygen
+        echo 'pgp-cmd gen-key' >> .keygen
+        echo '$NEXUS_USER' >> .keygen
+        echo '$NEXUS_EMAIL' >> .keygen
+        echo '$NEXUS_PASSPHRASE' >> .keygen
+        echo '$NEXUS_PASSPHRASE' >> .keygen
+        sbt < .keygen
+        rm .keygen
     - audienceproject/sbt-to-maven-central@1.0.1:
       user: $NEXUS_USER
       password: $NEXUS_PASSWORD
