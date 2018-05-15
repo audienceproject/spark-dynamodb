@@ -84,14 +84,6 @@ private[dynamodb] class ScanPartition(schema: StructType,
         if (requiredColumns.nonEmpty) Row.fromSeq(requiredColumns.map(columnName => typeConversions(columnName)(item)))
         else Row.fromSeq(item.asMap().asScala.values.toSeq.map(_.toString))
 
-    private def projectAttributes(requiredColumns: Seq[String]): String = {
-        val aliasMap = schema.collect({
-            case StructField(name, _, _, metadata) if metadata.contains("alias") =>
-                name -> metadata.getString("alias")
-        }).toMap
-        requiredColumns.map(name => aliasMap.getOrElse(name, name)).mkString(",")
-    }
-
     override def index: Int = partitionIndex
 
 }
