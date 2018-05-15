@@ -25,6 +25,7 @@ import com.amazonaws.services.dynamodbv2.model.ConsumedCapacity
 import com.audienceproject.spark.dynamodb.connector.DynamoConnector
 import org.apache.spark.Partition
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.spark_project.guava.util.concurrent.RateLimiter
 
@@ -43,17 +44,12 @@ private[dynamodb] class ScanPartition(schema: StructType,
             name -> TypeConversion(name, dataType)
     }).toMap
 
-    def scanTable(requiredColumns: Seq[String], filterExpression: Option[String]): Iterator[Row] = {
+    def scanTable(requiredColumns: Seq[String], filters: Seq[Filter]): Iterator[Row] = {
 
         val rateLimiter = RateLimiter.create(connector.rateLimit)
 
-        val scanResult = (requiredColumns, filterExpression) match {
-            case (columns, Some(filterExpr)) if columns.nonEmpty =>
-                connector.scan(index, projectAttributes(columns), filterExpr)
-            case (columns, None) if columns.nonEmpty =>
-                connector.scan(index, projectAttributes(columns))
-            case _ => connector.scan(index)
-        }
+        val scanResult = connector.scan(index, requiredColumns, filters)
+
         val pageIterator = scanResult.pages().iterator().asScala
 
         new Iterator[Row] {

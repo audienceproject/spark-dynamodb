@@ -22,6 +22,7 @@ package com.audienceproject.spark.dynamodb.rdd
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.{Partition, SparkContext, TaskContext}
 
@@ -29,12 +30,12 @@ private[dynamodb] class DynamoRDD(sc: SparkContext,
                                   schema: StructType,
                                   scanPartitions: Seq[ScanPartition],
                                   requiredColumns: Seq[String] = Seq.empty,
-                                  filterExpression: Option[String] = None)
+                                  filters: Seq[Filter] = Seq.empty)
     extends RDD[Row](sc, Nil) {
 
     override def compute(split: Partition, context: TaskContext): Iterator[Row] = {
         val scanPartition = split.asInstanceOf[ScanPartition]
-        scanPartition.scanTable(requiredColumns, filterExpression)
+        scanPartition.scanTable(requiredColumns, filters)
     }
 
     override protected def getPartitions: Array[Partition] = scanPartitions.toArray

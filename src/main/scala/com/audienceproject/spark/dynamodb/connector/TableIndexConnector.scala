@@ -23,6 +23,8 @@ package com.audienceproject.spark.dynamodb.connector
 import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec
 import com.amazonaws.services.dynamodbv2.document.{ItemCollection, ScanOutcome}
 import com.amazonaws.services.dynamodbv2.model.ReturnConsumedCapacity
+import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
+import org.apache.spark.sql.sources.Filter
 
 import scala.collection.JavaConverters._
 
@@ -55,30 +57,25 @@ private[dynamodb] class TableIndexConnector(tableName: String, indexName: String
         (hashKey, rangeKey, rateLimit, itemLimit, tableSize.toLong)
     }
 
-    override def scan(segmentNum: Int): ItemCollection[ScanOutcome] = {
-        val scanSpec = getBaseScanSpec.withSegment(segmentNum)
-        getClient.getTable(tableName).scan(scanSpec)
-    }
+    override def scan(segmentNum: Int, columns: Seq[String], filters: Seq[Filter]): ItemCollection[ScanOutcome] = {
+        val scanSpec = new ScanSpec()
+            .withSegment(segmentNum)
+            .withTotalSegments(totalSegments)
+            .withMaxPageSize(itemLimit)
+            .withReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
+            .withConsistentRead(consistentRead)
 
-    override def scan(segmentNum: Int,
-                      projectionExpression: String): ItemCollection[ScanOutcome] = {
-        val scanSpec = getBaseScanSpec.withSegment(segmentNum).withProjectionExpression(projectionExpression)
-        getClient.getTable(tableName).scan(scanSpec)
-    }
+        if (columns.nonEmpty) {
+            val xspec = new ExpressionSpecBuilder().addProjections(columns: _*)
 
-    override def scan(segmentNum: Int,
-                      projectionExpression: String,
-                      filterExpression: String): ItemCollection[ScanOutcome] = {
-        val scanSpec = getBaseScanSpec.withSegment(segmentNum)
-            .withProjectionExpression(projectionExpression)
-            .withFilterExpression(filterExpression)
-        getClient.getTable(tableName).scan(scanSpec)
-    }
+            if (filters.nonEmpty) {
+                xspec.withCondition(FilterPushdown(filters))
+            }
 
-    private def getBaseScanSpec: ScanSpec = new ScanSpec()
-        .withTotalSegments(totalSegments)
-        .withMaxPageSize(itemLimit)
-        .withReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
-        .withConsistentRead(consistentRead)
+            scanSpec.withExpressionSpec(xspec.buildForScan())
+        }
+
+        getClient.getTable(tableName).getIndex(indexName).scan(scanSpec)
+    }
 
 }

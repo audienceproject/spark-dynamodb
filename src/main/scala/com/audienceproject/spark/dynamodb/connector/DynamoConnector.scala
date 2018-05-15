@@ -25,6 +25,7 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB, ItemCollection, ScanOutcome}
+import org.apache.spark.sql.sources.Filter
 
 private[dynamodb] trait DynamoConnector {
 
@@ -52,10 +53,6 @@ private[dynamodb] trait DynamoConnector {
 
     val totalSizeInBytes: Long
 
-    def scan(segmentNum: Int): ItemCollection[ScanOutcome]
-
-    def scan(segmentNum: Int, projectionExpression: String): ItemCollection[ScanOutcome]
-
-    def scan(segmentNum: Int, projectionExpression: String, filterExpression: String): ItemCollection[ScanOutcome]
+    def scan(segmentNum: Int, columns: Seq[String], filters: Seq[Filter]): ItemCollection[ScanOutcome]
 
 }

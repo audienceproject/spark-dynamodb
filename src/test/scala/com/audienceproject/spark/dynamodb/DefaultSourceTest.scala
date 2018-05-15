@@ -20,53 +20,37 @@
   */
 package com.audienceproject.spark.dynamodb
 
-import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
-import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item}
-import com.amazonaws.services.dynamodbv2.local.main.ServerRunner
-import com.amazonaws.services.dynamodbv2.local.server.DynamoDBProxyServer
-import com.amazonaws.services.dynamodbv2.model.{AttributeDefinition, CreateTableRequest, KeySchemaElement, ProvisionedThroughput}
-import com.amazonaws.services.dynamodbv2.{AmazonDynamoDB, AmazonDynamoDBClientBuilder}
 import com.audienceproject.spark.dynamodb.implicits._
-import org.apache.spark.sql.SparkSession
-import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import org.apache.spark.sql.functions._
 
-class DefaultSourceTest extends FunSuite with BeforeAndAfterAll {
+import scala.collection.JavaConverters._
 
-    val server: DynamoDBProxyServer = ServerRunner.createServerFromCommandLineArgs(Array("-inMemory"))
+class DefaultSourceTest extends AbstractInMemoryTest {
 
-    val client: AmazonDynamoDB = AmazonDynamoDBClientBuilder.standard()
-        .withEndpointConfiguration(new EndpointConfiguration(System.getProperty("aws.dynamodb.endpoint"), "us-east-1"))
-        .build()
-    val dynamoDB: DynamoDB = new DynamoDB(client)
-
-    val spark: SparkSession = SparkSession.builder
-        .master("local")
-        .appName(this.getClass.getName)
-        .getOrCreate()
-
-    override def beforeAll(): Unit = {
-        server.start()
+    test("Table count is 9") {
+        val count = spark.read.dynamodb("TestFruit").count()
+        assert(count === 9)
     }
 
-    override def afterAll(): Unit = {
-        server.stop()
+    test("Column sum is 27") {
+        val result = spark.read.dynamodb("TestFruit").collectAsList().asScala
+        val numCols = result.map(_.length).sum
+        assert(numCols === 27)
     }
 
-    test("The apple is red") {
-        dynamoDB.createTable(new CreateTableRequest()
-            .withTableName("TestVegetables")
-            .withAttributeDefinitions(new AttributeDefinition("name", "S"))
-            .withKeySchema(new KeySchemaElement("name", "HASH"))
-            .withProvisionedThroughput(new ProvisionedThroughput(100L, 5L)))
+    test("Select only first two columns") {
+        val result = spark.read.dynamodb("TestFruit").select("name", "color").collectAsList().asScala
+        val numCols = result.map(_.length).sum
+        assert(numCols === 18)
+    }
 
-        val table = dynamoDB.getTable("TestVegetables")
-        table.putItem(new Item().withString("name", "Apple").withString("color", "red"))
-
-        assert(table.getItem("name", "Apple").getString("color") === "red")
-
-        val count = spark.read.dynamodb("TestVegetables").count()
-
-        assert(count === 1)
+    test("The least occurring color is yellow") {
+        import spark.implicits._
+        val itemWithLeastOccurringColor = spark.read.dynamodb("TestFruit")
+            .groupBy($"color").agg(count($"color").as("countColor"))
+            .orderBy($"countColor")
+            .takeAsList(1).get(0)
+        assert(itemWithLeastOccurringColor.getAs[String]("color") === "yellow")
     }
 
 }

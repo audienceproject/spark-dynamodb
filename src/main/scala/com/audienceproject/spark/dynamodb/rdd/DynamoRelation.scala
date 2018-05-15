@@ -51,8 +51,7 @@ private[dynamodb] class DynamoRelation(userSchema: StructType, parameters: Map[S
     }
 
     override def buildScan(requiredColumns: Array[String], filters: Array[Filter]): RDD[Row] = {
-        val filterExpression = if (filters.nonEmpty) Some(FilterCompiler(filters)) else None
-        new DynamoRDD(sqlContext.sparkContext, schema, makePartitions(numPartitions), requiredColumns, filterExpression)
+        new DynamoRDD(sqlContext.sparkContext, schema, makePartitions(numPartitions), requiredColumns, filters)
     }
 
     override def equals(other: Any): Boolean = {
@@ -67,7 +66,7 @@ private[dynamodb] class DynamoRelation(userSchema: StructType, parameters: Map[S
     }
 
     private def inferSchema(): StructType = {
-        val someOutcome = dynamoConnector.scan(0).firstPage().getLowLevelResult
+        val someOutcome = dynamoConnector.scan(0, Seq.empty, Seq.empty).firstPage().getLowLevelResult
         val typeMapping = someOutcome.getItems.asScala.foldLeft(Map[String, DataType]())({
             case (map, item) =>
                 map ++ item.asMap().asScala.mapValues({
@@ -78,6 +77,7 @@ private[dynamodb] class DynamoRelation(userSchema: StructType, parameters: Map[S
                             else DataTypes.createDecimalType(number.precision(), number.scale())
                         }
                         else DoubleType
+                    case _: java.lang.Boolean => BooleanType
                     case _ => StringType
                 })
         })
