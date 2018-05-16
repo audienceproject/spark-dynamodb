@@ -37,6 +37,12 @@ private[dynamodb] class ScanPartition(schema: StructType,
     extends Partition with Serializable {
 
     @transient
+    private lazy val aliasMap = schema.collect({
+        case StructField(name, _, _, metadata) if metadata.contains("alias") =>
+            name -> metadata.getString("alias")
+    }).toMap
+
+    @transient
     private lazy val typeConversions = schema.collect({
         case StructField(name, dataType, _, metadata) if metadata.contains("alias") =>
             name -> TypeConversion(metadata.getString("alias"), dataType)
@@ -48,7 +54,8 @@ private[dynamodb] class ScanPartition(schema: StructType,
 
         val rateLimiter = RateLimiter.create(connector.rateLimit)
 
-        val scanResult = connector.scan(index, requiredColumns, filters)
+        val projectedColumns = requiredColumns.map(name => aliasMap.getOrElse(name, name))
+        val scanResult = connector.scan(index, projectedColumns, filters)
 
         val pageIterator = scanResult.pages().iterator().asScala
 
