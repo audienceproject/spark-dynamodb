@@ -7,49 +7,15 @@ build:
       code: |
         sbt clean compile
 
-publish-snapshot:
+publish:
   steps:
     - script:
-      name: Keygen
+      name: Publish
       code: |
-        mkdir -p ~/.sbt/0.13/plugins/
-        touch ~/.sbt/0.13/plugins/plugins.sbt
-        echo 'addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.0.0")' >> ~/.sbt/0.13/plugins/plugins.sbt
-        touch .keygen
-        echo 'set pgpReadOnly := false' >> .keygen
-        echo 'pgp-cmd gen-key' >> .keygen
-        echo '$NEXUS_USER' >> .keygen
-        echo '$NEXUS_EMAIL' >> .keygen
-        echo '$NEXUS_PASSPHRASE' >> .keygen
-        echo '$NEXUS_PASSPHRASE' >> .keygen
-        sbt < .keygen
-        rm .keygen
-    - audienceproject/sbt-to-maven-central@1.0.1:
-      user: $NEXUS_USER
-      password: $NEXUS_PASSWORD
-      private-key: $NEXUS_PK
-      passphrase: $NEXUS_PASSPHRASE
-
-publish-release:
-  steps:
-    - script:
-      name: Keygen
-      code: |
-        mkdir -p ~/.sbt/0.13/plugins/
-        touch ~/.sbt/0.13/plugins/plugins.sbt
-        echo 'addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.0.0")' >> ~/.sbt/0.13/plugins/plugins.sbt
-        touch .keygen
-        echo 'set pgpReadOnly := false' >> .keygen
-        echo 'pgp-cmd gen-key' >> .keygen
-        echo '$NEXUS_USER' >> .keygen
-        echo '$NEXUS_EMAIL' >> .keygen
-        echo '$NEXUS_PASSPHRASE' >> .keygen
-        echo '$NEXUS_PASSPHRASE' >> .keygen
-        sbt < .keygen
-        rm .keygen
-    - audienceproject/sbt-to-maven-central@1.0.1:
-      user: $NEXUS_USER
-      password: $NEXUS_PASSWORD
-      private-key: $NEXUS_PK
-      passphrase: $NEXUS_PASSPHRASE
-      destination: RELEASE
+        mkdir -p ~/.sbt/0.13/
+        touch ~/.sbt/0.13/sonatype.sbt
+        echo 'credentials += Credentials("Sonatype Nexus Repository Manager",' >> ~/.sbt/0.13/sonatype.sbt
+        echo '                           "oss.sonatype.org",' >> ~/.sbt/0.13/sonatype.sbt
+        echo '                           "'$NEXUS_USER'",' >> ~/.sbt/0.13/sonatype.sbt
+        echo '                           "'$NEXUS_PASSWORD'")' >> ~/.sbt/0.13/sonatype.sbt
+        sbt publish

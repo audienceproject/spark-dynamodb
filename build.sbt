@@ -2,7 +2,7 @@ organization := "com.audienceproject"
 
 name := "spark-dynamodb"
 
-version := "0.1"
+version := "0.1-SNAPSHOT"
 
 description := "Plug-and-play implementation of an Apache Spark custom data source for AWS DynamoDB."
 
@@ -21,26 +21,16 @@ fork in Test := true
 javaOptions in Test ++= Seq("-Djava.library.path=./lib/sqlite4java", "-Daws.dynamodb.endpoint=http://localhost:8000")
 
 /**
-  * Maven specific settings for publishing to support Maven native projects.
+  * Maven specific settings for publishing to Maven central.
   */
 publishMavenStyle := true
 publishArtifact in Test := false
 pomIncludeRepository := { _ => false }
-publishTo := version { v: String =>
+publishTo := {
     val nexus = "https://oss.sonatype.org/"
-    if (v.trim.endsWith("SNAPSHOT")) Some("snapshots" at nexus + "content/repositories/snapshots")
+    if (isSnapshot.value) Some("snapshots" at nexus + "content/repositories/snapshots")
     else Some("releases" at nexus + "service/local/staging/deploy/maven2")
-}.value
-val publishSnapshot: Command = Command.command("publishSnapshot") { state =>
-    val extracted = Project extract state
-    import extracted._
-    val currentVersion = getOpt(version).get
-    val newState = Command.process(s"""set version := "$currentVersion-SNAPSHOT" """, state)
-    Project.extract(newState).runTask(PgpKeys.publishSigned in Compile, newState)
-    state
 }
-commands ++= Seq(publishSnapshot)
-pomIncludeRepository := { _ => false }
 pomExtra := <url>https://github.com/audienceproject/spark-dynamodb</url>
     <licenses>
         <license>
