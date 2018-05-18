@@ -33,6 +33,12 @@ val vegetableDs = spark.dynamodbAs[Vegetable]("VegeTable")
 val avgWeightByColor = vegetableDs.agg($"color", avg($"weightKg")) // The column is called 'weightKg' in the Dataset.
 ```
 
+## Getting The Dependency
+
+The library is available from Maven Central. Add the dependency in SBT as ```"com.audienceproject" %% "spark-dynamodb" % "latest"```
+
+Spark is used in the library as a "provided" dependency, which means Spark has to be installed separately on the container where the application is running, such as is the case on AWS EMR.
+
 ## Parameters
 The following parameters can be set as options on the Spark reader object before loading.
 
