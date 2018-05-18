@@ -47,8 +47,8 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
         val readFactor = if (consistentRead) 1 else 2
 
         // Rate limit calculation.
-        val tableSize = desc.getTableSizeBytes.toDouble
-        val avgItemSize = tableSize / desc.getItemCount
+        val tableSize = desc.getTableSizeBytes
+        val avgItemSize = tableSize.toDouble / desc.getItemCount
         val readCapacity = desc.getProvisionedThroughput.getReadCapacityUnits * targetCapacity
 
         val rateLimit = (readCapacity / totalSegments).toInt

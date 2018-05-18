@@ -33,10 +33,13 @@ private[dynamodb] class DynamoRelation(userSchema: StructType, parameters: Map[S
     extends BaseRelation with Serializable
         with TableScan with PrunedScan with PrunedFilteredScan {
 
+    private val tableName = parameters("tableName")
+    private val indexName = parameters.get("indexName")
     private val numPartitions = parameters.get("readPartitions").map(_.toInt).getOrElse(sqlContext.sparkContext.defaultParallelism)
+
     private val dynamoConnector =
-        if (parameters.contains("indexName")) new TableIndexConnector(parameters("tableName"), parameters("indexName"), numPartitions, parameters)
-        else new TableConnector(parameters("tableName"), numPartitions, parameters)
+        if (indexName.isDefined) new TableIndexConnector(tableName, indexName.get, numPartitions, parameters)
+        else new TableConnector(tableName, numPartitions, parameters)
 
     override val schema: StructType = Option(userSchema).getOrElse(inferSchema())
 
@@ -56,7 +59,11 @@ private[dynamodb] class DynamoRelation(userSchema: StructType, parameters: Map[S
 
     override def equals(other: Any): Boolean = {
         other match {
-            case that: DynamoRelation => this.schema == that.schema
+            case that: DynamoRelation =>
+                this.tableName == that.tableName &&
+                    this.indexName == that.indexName &&
+                    this.schema == that.schema &&
+                    this.sizeInBytes == that.sizeInBytes
             case _ => false
         }
     }
