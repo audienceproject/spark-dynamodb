@@ -36,7 +36,9 @@ private[dynamodb] object TypeConversion {
         }) (attrName)
 
     private def nullableGet(getter: Item => String => Any)(attrName: String): Item => Any = item =>
-        if (item.hasAttribute(attrName)) getter(item)(attrName)
+        if (item.hasAttribute(attrName)) try getter(item)(attrName) catch {
+            case _: NumberFormatException => null
+        }
         else null
 
 }

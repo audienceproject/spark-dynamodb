@@ -52,7 +52,7 @@ private[dynamodb] class ScanPartition(schema: StructType,
 
     def scanTable(requiredColumns: Seq[String], filters: Seq[Filter]): Iterator[Row] = {
 
-        val rateLimiter = RateLimiter.create(connector.rateLimit)
+        val rateLimiter = RateLimiter.create(connector.rateLimit.max(1))
 
         val projectedColumns = requiredColumns.map(name => aliasMap.getOrElse(name, name))
         val scanResult = connector.scan(index, projectedColumns, filters)
