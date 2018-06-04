@@ -21,8 +21,10 @@
 package com.audienceproject.spark.dynamodb
 
 import com.audienceproject.spark.dynamodb.reflect.SchemaAnalysis
+import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
-import org.apache.spark.sql.{DataFrame, DataFrameReader, Dataset, Encoder}
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.StructField
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
@@ -39,16 +41,29 @@ object implicits {
 
         def dynamodbAs[T <: Product : ClassTag : TypeTag](tableName: String): Dataset[T] = {
             implicit val encoder: Encoder[T] = ExpressionEncoder()
-            getDynamoDBSource(tableName).schema(SchemaAnalysis[T]).load().as
+            getColumnsAlias(getDynamoDBSource(tableName)
+                .schema(SchemaAnalysis[T]).load()).as
         }
 
         def dynamodbAs[T <: Product : ClassTag : TypeTag](tableName: String, indexName: String): Dataset[T] = {
             implicit val encoder: Encoder[T] = ExpressionEncoder()
-            getDynamoDBSource(tableName).option("indexName", indexName).schema(SchemaAnalysis[T]).load().as
+            getColumnsAlias(getDynamoDBSource(tableName)
+                .option("indexName", indexName)
+                .schema(SchemaAnalysis[T]).load()).as
         }
 
         private def getDynamoDBSource(tableName: String): DataFrameReader =
             reader.format("com.audienceproject.spark.dynamodb").option("tableName", tableName)
+
+        private def getColumnsAlias(dataFrame: DataFrame): DataFrame = {
+            val columnsAlias = dataFrame.schema.collect({
+                case StructField(name, _, _, metadata) if metadata.contains("alias") =>
+                    col(name).as(metadata.getString("alias"))
+                case StructField(name, _, _, _) =>
+                    col(name)
+            })
+            dataFrame.select(columnsAlias: _*)
+        }
 
     }
 

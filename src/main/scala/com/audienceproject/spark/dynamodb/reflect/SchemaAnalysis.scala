@@ -51,11 +51,12 @@ private[dynamodb] object SchemaAnalysis {
                     })
             }).flatten
 
-            val metadata = attrName
-                .map(name => new MetadataBuilder().putString("alias", name).build())
-                .getOrElse(Metadata.empty)
-
-            StructField(field.name.toString, sparkType, nullable = true, metadata)
+            if (attrName.isDefined) {
+                val metadata = new MetadataBuilder().putString("alias", field.name.toString).build()
+                StructField(attrName.get, sparkType, nullable = true, metadata)
+            } else {
+                StructField(field.name.toString, sparkType, nullable = true, Metadata.empty)
+            }
         })
 
         StructType(sparkFields)

@@ -53,4 +53,12 @@ class DefaultSourceTest extends AbstractInMemoryTest {
         assert(itemWithLeastOccurringColor.getAs[String]("color") === "yellow")
     }
 
+    test("Test of attribute name alias") {
+        import spark.implicits._
+        val itemApple = spark.read.dynamodbAs[TestFruit]("TestFruit")
+            .filter($"primaryKey" === "apple")
+            .takeAsList(1).get(0)
+        assert(itemApple.primaryKey === "apple")
+    }
+
 }

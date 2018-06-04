@@ -38,8 +38,8 @@ class AbstractInMemoryTest extends FunSuite with BeforeAndAfterAll {
         for ((name, color, weight) <- Seq(
             ("apple", "red", 0.2), ("banana", "yellow", 0.15), ("watermelon", "red", 0.5),
             ("grape", "green", 0.01), ("pear", "green", 0.2), ("kiwi", "green", 0.05),
-            ("blackberry", "purple", 0.01), ("blueberry", "purple", 0.01), ("plum", "purple", 0.1))
-        ) {
+            ("blackberry", "purple", 0.01), ("blueberry", "purple", 0.01), ("plum", "purple", 0.1)
+        )) {
             table.putItem(new Item()
                 .withString("name", name)
                 .withString("color", color)

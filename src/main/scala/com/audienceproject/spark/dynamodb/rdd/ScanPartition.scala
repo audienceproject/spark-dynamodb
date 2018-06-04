@@ -29,6 +29,7 @@ import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.spark_project.guava.util.concurrent.RateLimiter
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
 private[dynamodb] class ScanPartition(schema: StructType,
@@ -37,25 +38,15 @@ private[dynamodb] class ScanPartition(schema: StructType,
     extends Partition with Serializable {
 
     @transient
-    private lazy val aliasMap = schema.collect({
-        case StructField(name, _, _, metadata) if metadata.contains("alias") =>
-            name -> metadata.getString("alias")
-    }).toMap
-
-    @transient
     private lazy val typeConversions = schema.collect({
-        case StructField(name, dataType, _, metadata) if metadata.contains("alias") =>
-            name -> TypeConversion(metadata.getString("alias"), dataType)
-        case StructField(name, dataType, _, _) =>
-            name -> TypeConversion(name, dataType)
+        case StructField(name, dataType, _, _) => name -> TypeConversion(name, dataType)
     }).toMap
 
     def scanTable(requiredColumns: Seq[String], filters: Seq[Filter]): Iterator[Row] = {
 
         val rateLimiter = RateLimiter.create(connector.rateLimit.max(1))
 
-        val projectedColumns = requiredColumns.map(name => aliasMap.getOrElse(name, name))
-        val scanResult = connector.scan(index, projectedColumns, filters)
+        val scanResult = connector.scan(index, requiredColumns, filters)
 
         val pageIterator = scanResult.pages().iterator().asScala
 
@@ -64,24 +55,26 @@ private[dynamodb] class ScanPartition(schema: StructType,
             var innerIterator: Iterator[Row] = Iterator.empty
             var prevConsumedCapacity: Option[ConsumedCapacity] = None
 
-            override def hasNext: Boolean = innerIterator.hasNext || pageIterator.hasNext
-
-            override def next(): Row = {
-                if (!innerIterator.hasNext) {
-                    if (!pageIterator.hasNext) throw new NoSuchElementException("End of table")
-                    else {
-                        // Limit throughput to provisioned capacity.
-                        prevConsumedCapacity
-                            .map(capacity => Math.ceil(capacity.getCapacityUnits).toInt)
-                            .foreach(rateLimiter.acquire)
-
-                        val page = pageIterator.next()
-                        prevConsumedCapacity = Option(page.getLowLevelResult.getScanResult.getConsumedCapacity)
-                        innerIterator = page.getLowLevelResult.getItems.iterator().asScala.map(itemToRow(requiredColumns))
-                    }
+            @tailrec
+            override def hasNext: Boolean = innerIterator.hasNext || {
+                if (pageIterator.hasNext) {
+                    nextPage()
+                    hasNext
                 }
+                else false
+            }
 
-                innerIterator.next()
+            override def next(): Row = innerIterator.next()
+
+            private def nextPage(): Unit = {
+                // Limit throughput to provisioned capacity.
+                prevConsumedCapacity
+                    .map(capacity => Math.ceil(capacity.getCapacityUnits).toInt)
+                    .foreach(rateLimiter.acquire)
+
+                val page = pageIterator.next()
+                prevConsumedCapacity = Option(page.getLowLevelResult.getScanResult.getConsumedCapacity)
+                innerIterator = page.getLowLevelResult.getItems.iterator().asScala.map(itemToRow(requiredColumns))
             }
 
         }
