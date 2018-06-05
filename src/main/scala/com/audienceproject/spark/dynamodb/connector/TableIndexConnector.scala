@@ -32,14 +32,14 @@ private[dynamodb] class TableIndexConnector(tableName: String, indexName: String
     extends DynamoConnector with Serializable {
 
     private val consistentRead = parameters.getOrElse("stronglyConsistentReads", "false").toBoolean
+    private val filterPushdown = parameters.getOrElse("filterPushdown", "true").toBoolean
 
-    override val (hashKey, rangeKey, rateLimit, itemLimit, totalSizeInBytes) = {
+    override val (keySchema, rateLimit, itemLimit, totalSizeInBytes) = {
         val table = getClient.getTable(tableName)
         val indexDesc = table.describe().getGlobalSecondaryIndexes.asScala.find(_.getIndexName == indexName).get
 
         // Key schema.
-        val hashKey = indexDesc.getKeySchema.asScala.find(_.getKeyType == "HASH").get.getKeyType
-        val rangeKey = indexDesc.getKeySchema.asScala.find(_.getKeyType == "RANGE").map(_.getKeyType)
+        val keySchema = KeySchema.fromDescription(indexDesc.getKeySchema.asScala)
 
         // Parameters.
         val bytesPerRCU = parameters.getOrElse("bytesPerRCU", "4000").toInt
@@ -54,7 +54,7 @@ private[dynamodb] class TableIndexConnector(tableName: String, indexName: String
         val rateLimit = (readCapacity / totalSegments).toInt
         val itemLimit = (bytesPerRCU / avgItemSize * rateLimit).toInt * readFactor
 
-        (hashKey, rangeKey, rateLimit, itemLimit, tableSize.toLong)
+        (keySchema, rateLimit, itemLimit, tableSize.toLong)
     }
 
     override def scan(segmentNum: Int, columns: Seq[String], filters: Seq[Filter]): ItemCollection[ScanOutcome] = {
@@ -68,7 +68,7 @@ private[dynamodb] class TableIndexConnector(tableName: String, indexName: String
         if (columns.nonEmpty) {
             val xspec = new ExpressionSpecBuilder().addProjections(columns: _*)
 
-            if (filters.nonEmpty) {
+            if (filters.nonEmpty && filterPushdown) {
                 xspec.withCondition(FilterPushdown(filters))
             }
 

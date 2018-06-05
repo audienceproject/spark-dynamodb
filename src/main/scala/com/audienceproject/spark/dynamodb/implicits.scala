@@ -67,4 +67,11 @@ object implicits {
 
     }
 
+    implicit class DynamoDBDataFrameWriter[T](writer: DataFrameWriter[T]) {
+
+        def dynamodb(tableName: String): Unit =
+            writer.format("com.audienceproject.spark.dynamodb").option("tableName", tableName).save()
+
+    }
+
 }

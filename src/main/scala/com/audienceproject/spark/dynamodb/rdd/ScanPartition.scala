@@ -44,7 +44,9 @@ private[dynamodb] class ScanPartition(schema: StructType,
 
     def scanTable(requiredColumns: Seq[String], filters: Seq[Filter]): Iterator[Row] = {
 
-        val rateLimiter = RateLimiter.create(connector.rateLimit.max(1))
+        if (connector.isEmpty) return Iterator.empty
+
+        val rateLimiter = RateLimiter.create(connector.rateLimit max 1)
 
         val scanResult = connector.scan(index, requiredColumns, filters)
 
@@ -69,7 +71,7 @@ private[dynamodb] class ScanPartition(schema: StructType,
             private def nextPage(): Unit = {
                 // Limit throughput to provisioned capacity.
                 prevConsumedCapacity
-                    .map(capacity => Math.ceil(capacity.getCapacityUnits).toInt)
+                    .map(capacity => math.ceil(capacity.getCapacityUnits).toInt)
                     .foreach(rateLimiter.acquire)
 
                 val page = pageIterator.next()
