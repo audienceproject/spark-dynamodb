@@ -10,6 +10,7 @@ Plug-and-play implementation of an Apache Spark custom data source for AWS Dynam
   - Static analysis of case class
 - Column and filter pushdown
 - Global secondary index support
+- Write support
 
 ## Quick Start Guide
 
@@ -46,6 +47,12 @@ The following parameters can be set as options on the Spark reader object before
 - `targetCapacity` fraction of provisioned read capacity on the table (or index) to consume for reading. Default 1 (i.e. 100% capacity).
 - `stronglyConsistentReads` whether or not to use strongly consistent reads. Default false.
 - `bytesPerRCU` number of bytes that can be read per second with a single Read Capacity Unit. Default 4000 (4 KB). This value is multiplied by two when `stronglyConsistentReads=false`
+- `filterPushdown` whether or not to use filter pushdown to DynamoDB on scan requests. Default true.
+
+The following parameters can be set as options on the Spark writer object before saving.
+
+- `writePartitions` number of partitions to split the given DataFrame into when writing to DynamoDB. Set to `skip` to avoid repartitioning the DataFrame before writing. Defaults to `sparkContext.defaultParallelism`
+- `writeBatchSize` number of items to send per call to DynamoDB BatchWriteItem. Default 25.
 
 ## Running Unit Tests
 The unit tests are dependent on the AWS DynamoDBLocal client, which in turn is dependent on [sqlite4java](https://bitbucket.org/almworks/sqlite4java/src/master/). I had some problems running this on OSX, so I had to put the library directly in the /lib folder, as graciously explained in [this Stack Overflow answer](https://stackoverflow.com/questions/34137043/amazon-dynamodb-local-unknown-error-exception-or-failure/35353377#35353377).

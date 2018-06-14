@@ -20,12 +20,14 @@
   */
 package com.audienceproject.spark.dynamodb
 
-import com.audienceproject.spark.dynamodb.rdd.DynamoRelation
-import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.sources.{BaseRelation, RelationProvider, SchemaRelationProvider}
+import com.audienceproject.spark.dynamodb.rdd.{DynamoRelation, DynamoWriteRelation}
+import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
 
-class DefaultSource extends RelationProvider with SchemaRelationProvider {
+class DefaultSource extends RelationProvider
+    with SchemaRelationProvider
+    with CreatableRelationProvider {
 
     override def createRelation(sqlContext: SQLContext, parameters: Map[String, String]): BaseRelation = {
         createRelation(sqlContext, parameters, null)
@@ -34,6 +36,18 @@ class DefaultSource extends RelationProvider with SchemaRelationProvider {
     override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
                                 schema: StructType): BaseRelation = {
         new DynamoRelation(schema, parameters)(sqlContext)
+    }
+
+    override def createRelation(sqlContext: SQLContext, mode: SaveMode, parameters: Map[String, String],
+                                data: DataFrame): BaseRelation = {
+        val writeData =
+            if (parameters.get("writePartitions").contains("skip")) data
+            else data.repartition(parameters.get("writePartitions").map(_.toInt).getOrElse(sqlContext.sparkContext.defaultParallelism))
+
+        val writeRelation = new DynamoWriteRelation(writeData, parameters)(sqlContext)
+
+        writeRelation.write()
+        writeRelation
     }
 
 }

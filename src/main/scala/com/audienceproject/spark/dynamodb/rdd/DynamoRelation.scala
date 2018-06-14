@@ -73,8 +73,10 @@ private[dynamodb] class DynamoRelation(userSchema: StructType, parameters: Map[S
     }
 
     private def inferSchema(): StructType = {
-        val someOutcome = dynamoConnector.scan(0, Seq.empty, Seq.empty).firstPage().getLowLevelResult
-        val typeMapping = someOutcome.getItems.asScala.foldLeft(Map[String, DataType]())({
+        val inferenceItems =
+            if (dynamoConnector.nonEmpty) dynamoConnector.scan(0, Seq.empty, Seq.empty).firstPage().getLowLevelResult.getItems.asScala
+            else Seq.empty
+        val typeMapping = inferenceItems.foldLeft(Map[String, DataType]())({
             case (map, item) =>
                 map ++ item.asMap().asScala.mapValues({
                     case number: java.math.BigDecimal =>

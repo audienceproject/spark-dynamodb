@@ -43,16 +43,18 @@ private[dynamodb] trait DynamoConnector {
         new DynamoDB(client)
     }
 
-    val hashKey: String
+    val keySchema: KeySchema
 
-    val rangeKey: Option[String]
-
-    val rateLimit: Int
+    val readLimit: Int
 
     val itemLimit: Int
 
     val totalSizeInBytes: Long
 
     def scan(segmentNum: Int, columns: Seq[String], filters: Seq[Filter]): ItemCollection[ScanOutcome]
+
+    def isEmpty: Boolean = itemLimit == 0
+
+    def nonEmpty: Boolean = !isEmpty
 
 }
