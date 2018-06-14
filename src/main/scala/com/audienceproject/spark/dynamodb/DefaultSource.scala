@@ -40,7 +40,12 @@ class DefaultSource extends RelationProvider
 
     override def createRelation(sqlContext: SQLContext, mode: SaveMode, parameters: Map[String, String],
                                 data: DataFrame): BaseRelation = {
-        val writeRelation = new DynamoWriteRelation(data, parameters)(sqlContext)
+        val writeData =
+            if (parameters.get("writePartitions").contains("skip")) data
+            else data.repartition(parameters.get("writePartitions").map(_.toInt).getOrElse(sqlContext.sparkContext.defaultParallelism))
+
+        val writeRelation = new DynamoWriteRelation(writeData, parameters)(sqlContext)
+
         writeRelation.write()
         writeRelation
     }

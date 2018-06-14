@@ -34,7 +34,7 @@ private[dynamodb] class TableIndexConnector(tableName: String, indexName: String
     private val consistentRead = parameters.getOrElse("stronglyConsistentReads", "false").toBoolean
     private val filterPushdown = parameters.getOrElse("filterPushdown", "true").toBoolean
 
-    override val (keySchema, rateLimit, itemLimit, totalSizeInBytes) = {
+    override val (keySchema, readLimit, itemLimit, totalSizeInBytes) = {
         val table = getClient.getTable(tableName)
         val indexDesc = table.describe().getGlobalSecondaryIndexes.asScala.find(_.getIndexName == indexName).get
 

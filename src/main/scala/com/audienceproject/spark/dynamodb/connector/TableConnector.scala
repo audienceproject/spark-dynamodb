@@ -32,12 +32,12 @@ import org.spark_project.guava.util.concurrent.RateLimiter
 import scala.collection.JavaConverters._
 
 private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, parameters: Map[String, String])
-    extends DynamoConnector with Serializable {
+    extends DynamoConnector with DynamoWritable with Serializable {
 
     private val consistentRead = parameters.getOrElse("stronglyConsistentReads", "false").toBoolean
     private val filterPushdown = parameters.getOrElse("filterPushdown", "true").toBoolean
 
-    override val (keySchema, rateLimit, itemLimit, totalSizeInBytes) = {
+    override val (keySchema, readLimit, writeLimit, itemLimit, totalSizeInBytes) = {
         val table = getClient.getTable(tableName)
         val desc = table.describe()
 
@@ -53,11 +53,14 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
         val tableSize = desc.getTableSizeBytes
         val avgItemSize = tableSize.toDouble / desc.getItemCount
         val readCapacity = desc.getProvisionedThroughput.getReadCapacityUnits * targetCapacity
+        val writeCapacity = desc.getProvisionedThroughput.getWriteCapacityUnits * targetCapacity
 
-        val rateLimit = (readCapacity / totalSegments).toInt
-        val itemLimit = (bytesPerRCU / avgItemSize * rateLimit).toInt * readFactor
+        val readLimit = (readCapacity / totalSegments).toInt
+        val itemLimit = (bytesPerRCU / avgItemSize * readLimit).toInt * readFactor
 
-        (keySchema, rateLimit, itemLimit, tableSize.toLong)
+        val writeLimit = (writeCapacity / totalSegments).toInt
+
+        (keySchema, readLimit, writeLimit, itemLimit, tableSize.toLong)
     }
 
     override def scan(segmentNum: Int, columns: Seq[String], filters: Seq[Filter]): ItemCollection[ScanOutcome] = {
@@ -81,7 +84,7 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
         getClient.getTable(tableName).scan(scanSpec)
     }
 
-    def putItems(schema: StructType, batchSize: Int)(items: Iterator[Row]): Unit = {
+    override def putItems(schema: StructType, batchSize: Int)(items: Iterator[Row]): Unit = {
         val columnNames = schema.map(_.name)
         val hashKeyIndex = columnNames.indexOf(keySchema.hashKeyName)
         val rangeKeyIndex = keySchema.rangeKeyName.map(columnNames.indexOf)
@@ -92,7 +95,7 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
             }
         })
 
-        val rateLimiter = RateLimiter.create(rateLimit max 1)
+        val rateLimiter = RateLimiter.create(writeLimit max 1)
         val client = getClient
 
         // For each batch.
@@ -111,7 +114,10 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
                     }
 
                     // Map remaining columns.
-                    columnIndices.foreach({ case (name, index) => item.`with`(name, row(index)) })
+                    columnIndices.foreach({
+                        case (name, index) if !row.isNullAt(index) => item.`with`(name, row(index))
+                        case _ =>
+                    })
 
                     item
                 }): _*
@@ -119,9 +125,11 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
 
             val response = client.batchWriteItem(batchWriteItemSpec)
 
-            Option(response.getBatchWriteItemResult.getConsumedCapacity).map(capacityList => {
-                math.ceil(capacityList.asScala.map(_.getCapacityUnits.toDouble).sum).toInt
-            }).foreach(rateLimiter.acquire)
+            if (response.getBatchWriteItemResult.getConsumedCapacity != null) {
+                response.getBatchWriteItemResult.getConsumedCapacity.asScala.map(cap => {
+                    cap.getTableName -> cap.getCapacityUnits.toInt
+                }).toMap.get(tableName).foreach(rateLimiter.acquire)
+            }
         })
     }
 

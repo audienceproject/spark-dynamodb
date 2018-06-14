@@ -48,6 +48,10 @@ The following parameters can be set as options on the Spark reader object before
 - `stronglyConsistentReads` whether or not to use strongly consistent reads. Default false.
 - `bytesPerRCU` number of bytes that can be read per second with a single Read Capacity Unit. Default 4000 (4 KB). This value is multiplied by two when `stronglyConsistentReads=false`
 - `filterPushdown` whether or not to use filter pushdown to DynamoDB on scan requests. Default true.
+
+The following parameters can be set as options on the Spark writer object before saving.
+
+- `writePartitions` number of partitions to split the given DataFrame into when writing to DynamoDB. Set to `skip` to avoid repartitioning the DataFrame before writing. Defaults to `sparkContext.defaultParallelism`
 - `writeBatchSize` number of items to send per call to DynamoDB BatchWriteItem. Default 25.
 
 ## Running Unit Tests
