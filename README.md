@@ -60,3 +60,6 @@ The unit tests are dependent on the AWS DynamoDBLocal client, which in turn is d
 In order to run the tests, make sure to put the following as additional VM parameters:
 
 ```-Djava.library.path=./lib/sqlite4java -Daws.dynamodb.endpoint=http://localhost:8000```
+
+## Acknowledgements
+Usage of parallel scan and rate limiter inspired by work in https://github.com/traviscrawford/spark-dynamodb
