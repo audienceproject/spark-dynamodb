@@ -76,6 +76,7 @@ private[dynamodb] class DynamoRelation(userSchema: StructType, parameters: Map[S
         val inferenceItems =
             if (dynamoConnector.nonEmpty) dynamoConnector.scan(0, Seq.empty, Seq.empty).firstPage().getLowLevelResult.getItems.asScala
             else Seq.empty
+
         val typeMapping = inferenceItems.foldLeft(Map[String, DataType]())({
             case (map, item) =>
                 map ++ item.asMap().asScala.mapValues({
@@ -87,7 +88,11 @@ private[dynamodb] class DynamoRelation(userSchema: StructType, parameters: Map[S
                         }
                         else DoubleType
                     case _: java.lang.Boolean => BooleanType
-                    case _ => StringType
+                    case _: java.lang.String => StringType
+                    case _: java.util.ArrayList[java.util.LinkedHashMap[String,String]] => ArrayType(MapType(StringType,StringType, valueContainsNull = false), containsNull = false)
+                    case _: java.util.ArrayList[String] => ArrayType(StringType, containsNull = false)
+                    case _: java.util.Map[String,String] => MapType(StringType,StringType, valueContainsNull = false)
+                    case unimplementedType => throw new RuntimeException(s"Schema inference not possible, type not implemented: $unimplementedType")
                 })
         })
         val typeSeq = typeMapping.map({ case (name, sparkType) => StructField(name, sparkType) }).toSeq

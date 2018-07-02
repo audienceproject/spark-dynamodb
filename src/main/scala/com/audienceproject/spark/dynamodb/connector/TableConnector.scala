@@ -26,7 +26,7 @@ import com.amazonaws.services.dynamodbv2.model.ReturnConsumedCapacity
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.sources.Filter
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{ArrayType, MapType, StructType}
 import org.spark_project.guava.util.concurrent.RateLimiter
 
 import scala.collection.JavaConverters._
@@ -115,7 +115,19 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
 
                     // Map remaining columns.
                     columnIndices.foreach({
-                        case (name, index) if !row.isNullAt(index) => item.`with`(name, row(index))
+                        case (name, index) if !row.isNullAt(index) =>
+                            schema(name).dataType match {
+                                // Treat ArrayType and MapType separately.
+                                case dt: ArrayType =>
+                                    dt.elementType match {
+                                        case e: MapType =>
+                                            val seq = row.getSeq[Map[_,_]](index)
+                                            item.`with`(name, seq.map( element => element.asJava).asJava)
+                                        case _ => item.`with`(name, row.getList(index))
+                                    }
+                                case dt: MapType => item.`with`(name, row.getJavaMap(index))
+                                case _ => item.`with`(name, row(index))
+                            }
                         case _ =>
                     })
 

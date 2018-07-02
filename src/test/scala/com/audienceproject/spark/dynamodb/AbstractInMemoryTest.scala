@@ -23,6 +23,8 @@ class AbstractInMemoryTest extends FunSuite with BeforeAndAfterAll {
         .appName(this.getClass.getName)
         .getOrCreate()
 
+    spark.sparkContext.setLogLevel("ERROR")
+
     override def beforeAll(): Unit = {
         server.start()
 
