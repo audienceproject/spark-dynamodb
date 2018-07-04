@@ -21,21 +21,26 @@
 package com.audienceproject.spark.dynamodb.rdd
 
 import com.amazonaws.services.dynamodbv2.document.Item
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
+
+import scala.collection.JavaConverters._
 
 private[dynamodb] object TypeConversion {
 
     def apply(attrName: String, sparkType: DataType): Item => Any =
 
         (sparkType match {
+            case BooleanType => nullableGet(_.getBOOL) _
             case StringType => nullableGet(_.getString) _
             case IntegerType => nullableGet(_.getInt) _
             case LongType => nullableGet(_.getLong) _
             case DoubleType => nullableGet(_.getDouble) _
             case FloatType => nullableGet(_.getFloat) _
             case ArrayType(StringType, false) => nullableGet(_.getList[String]) _
-            case ArrayType(MapType(StringType,StringType, false), false) => nullableGet(_.getList[Map[String,String]]) _
-            case MapType(StringType,StringType, false) => nullableGet(_.getMap[String]) _
+            case ArrayType(MapType(StringType, StringType, false), false) => nullableGet(_.getList[Map[String, String]]) _
+            case MapType(StringType, StringType, false) => nullableGet(_.getMap[String]) _
+            case StructType(_) => nullableGet(_.getMap[Any]) _
             case _ => throw new IllegalArgumentException(s"Spark DataType '${sparkType.typeName}' could not be mapped to a corresponding DynamoDB data type.")
         }) (attrName)
 
@@ -44,5 +49,7 @@ private[dynamodb] object TypeConversion {
             case _: NumberFormatException => null
         }
         else null
+
+
 
 }

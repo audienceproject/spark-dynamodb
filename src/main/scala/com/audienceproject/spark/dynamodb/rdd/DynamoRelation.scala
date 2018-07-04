@@ -89,9 +89,22 @@ private[dynamodb] class DynamoRelation(userSchema: StructType, parameters: Map[S
                         else DoubleType
                     case _: java.lang.Boolean => BooleanType
                     case _: java.lang.String => StringType
-                    case _: java.util.ArrayList[java.util.LinkedHashMap[String,String]] => ArrayType(MapType(StringType,StringType, valueContainsNull = false), containsNull = false)
+                    case _: java.util.ArrayList[java.util.Map[String, String]] => ArrayType(MapType(StringType, StringType, valueContainsNull = false), containsNull = false)
                     case _: java.util.ArrayList[String] => ArrayType(StringType, containsNull = false)
-                    case _: java.util.Map[String,String] => MapType(StringType,StringType, valueContainsNull = false)
+                    case map: java.util.Map[String, _] =>
+                        val struct = new StructType
+
+
+                        val structFields = for( (k,v) <- map.asScala ) yield (k, v) match {
+                            case (key, value: String) => StructField(key, StringType)
+                            case (key, value: Boolean) => StructField(key, BooleanType)
+                            case (key, value: Double) => StructField(key, DoubleType)
+                            case (key, _) => StructField(key, StringType)
+                        }
+
+                        StructType(structFields.toSeq)
+
+                    case _: java.util.Map[String, String] => MapType(StringType, StringType, valueContainsNull = false)
                     case unimplementedType => throw new RuntimeException(s"Schema inference not possible, type not implemented: $unimplementedType")
                 })
         })

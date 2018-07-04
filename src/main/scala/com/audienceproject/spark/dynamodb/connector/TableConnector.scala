@@ -26,7 +26,7 @@ import com.amazonaws.services.dynamodbv2.model.ReturnConsumedCapacity
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.sources.Filter
-import org.apache.spark.sql.types.{ArrayType, MapType, StructType}
+import org.apache.spark.sql.types._
 import org.spark_project.guava.util.concurrent.RateLimiter
 
 import scala.collection.JavaConverters._
@@ -121,11 +121,12 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
                                 case dt: ArrayType =>
                                     dt.elementType match {
                                         case e: MapType =>
-                                            val seq = row.getSeq[Map[_,_]](index)
-                                            item.`with`(name, seq.map( element => element.asJava).asJava)
+                                            val seq = row.getSeq[Map[_, _]](index)
+                                            item.`with`(name, seq.map(element => element.asJava).asJava)
                                         case _ => item.`with`(name, row.getList(index))
                                     }
                                 case dt: MapType => item.`with`(name, row.getJavaMap(index))
+                                case dt: StructType => item.`with`(name, parseStruct(row.getStruct(index)).asJava)
                                 case _ => item.`with`(name, row(index))
                             }
                         case _ =>
@@ -145,4 +146,14 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
         })
     }
 
+
+    def parseStruct(struct: Row): Map[String, Any] = {
+        Map(struct.schema map { field =>
+            (field.name, field.dataType match {
+                case dt: StringType => struct.getAs[String](field.name)
+                case dt: BooleanType => struct.getAs[Boolean](field.name)
+                case dt: DoubleType => struct.getAs[Double](field.name)
+            })
+        }: _*)
+    }
 }
