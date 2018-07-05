@@ -116,19 +116,7 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
                     // Map remaining columns.
                     columnIndices.foreach({
                         case (name, index) if !row.isNullAt(index) =>
-                            schema(name).dataType match {
-                                // Treat ArrayType and MapType separately.
-                                case dt: ArrayType =>
-                                    dt.elementType match {
-                                        case e: MapType =>
-                                            val seq = row.getSeq[Map[_, _]](index)
-                                            item.`with`(name, seq.map(element => element.asJava).asJava)
-                                        case _ => item.`with`(name, row.getList(index))
-                                    }
-                                case dt: MapType => item.`with`(name, row.getJavaMap(index))
-                                case dt: StructType => item.`with`(name, parseStruct(row.getStruct(index)).asJava)
-                                case _ => item.`with`(name, row(index))
-                            }
+                            item.`with`(name, mapValue(row(index), schema(name).dataType))
                         case _ =>
                     })
 
@@ -146,14 +134,20 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
         })
     }
 
-
-    def parseStruct(struct: Row): Map[String, Any] = {
-        Map(struct.schema map { field =>
-            (field.name, field.dataType match {
-                case dt: StringType => struct.getAs[String](field.name)
-                case dt: BooleanType => struct.getAs[Boolean](field.name)
-                case dt: DoubleType => struct.getAs[Double](field.name)
-            })
-        }: _*)
+    private def mapValue(element: Any, elementType: DataType): Any = {
+        elementType match {
+            case ArrayType(innerType, _) => element.asInstanceOf[Seq[_]].map(e => mapValue(e, innerType)).asJava
+            case MapType(keyType, valueType, _) =>
+                if (keyType != StringType) throw new IllegalArgumentException(
+                    s"Invalid Map key type '${keyType.typeName}'. DynamoDB only supports String as Map key type.")
+                element.asInstanceOf[Map[_, _]].mapValues(e => mapValue(e, valueType)).asJava
+            case StructType(fields) =>
+                val row = element.asInstanceOf[Row]
+                (fields.indices map { i =>
+                    fields(i).name -> mapValue(row(i), fields(i).dataType)
+                }).toMap.asJava
+            case _ => element
+        }
     }
+
 }

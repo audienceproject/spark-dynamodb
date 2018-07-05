@@ -21,6 +21,7 @@
 package com.audienceproject.spark.dynamodb
 
 import com.audienceproject.spark.dynamodb.implicits._
+import com.audienceproject.spark.dynamodb.structs.TestFruit
 import org.apache.spark.sql.functions._
 
 import scala.collection.JavaConverters._
