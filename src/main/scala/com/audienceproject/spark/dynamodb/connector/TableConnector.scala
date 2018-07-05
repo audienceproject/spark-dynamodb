@@ -20,8 +20,8 @@
   */
 package com.audienceproject.spark.dynamodb.connector
 
+import com.amazonaws.services.dynamodbv2.document._
 import com.amazonaws.services.dynamodbv2.document.spec.{BatchWriteItemSpec, ScanSpec}
-import com.amazonaws.services.dynamodbv2.document.{Item, ItemCollection, ScanOutcome, TableWriteItems}
 import com.amazonaws.services.dynamodbv2.model.ReturnConsumedCapacity
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
 import org.apache.spark.sql.Row
@@ -29,6 +29,7 @@ import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types._
 import org.spark_project.guava.util.concurrent.RateLimiter
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
 private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, parameters: Map[String, String])
@@ -126,11 +127,7 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
 
             val response = client.batchWriteItem(batchWriteItemSpec)
 
-            if (response.getBatchWriteItemResult.getConsumedCapacity != null) {
-                response.getBatchWriteItemResult.getConsumedCapacity.asScala.map(cap => {
-                    cap.getTableName -> cap.getCapacityUnits.toInt
-                }).toMap.get(tableName).foreach(rateLimiter.acquire)
-            }
+            handleBatchWriteResponse(client, rateLimiter)(response)
         })
     }
 
@@ -147,6 +144,22 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
                     fields(i).name -> mapValue(row(i), fields(i).dataType)
                 }).toMap.asJava
             case _ => element
+        }
+    }
+
+    @tailrec
+    private def handleBatchWriteResponse(client: DynamoDB, rateLimiter: RateLimiter)
+                                        (response: BatchWriteItemOutcome): Unit = {
+        // Rate limit on write capacity.
+        if (response.getBatchWriteItemResult.getConsumedCapacity != null) {
+            response.getBatchWriteItemResult.getConsumedCapacity.asScala.map(cap => {
+                cap.getTableName -> cap.getCapacityUnits.toInt
+            }).toMap.get(tableName).foreach(rateLimiter.acquire)
+        }
+        // Retry unprocessed items.
+        if (response.getUnprocessedItems != null && !response.getUnprocessedItems.isEmpty) {
+            val newResponse = client.batchWriteItemUnprocessed(response.getUnprocessedItems)
+            handleBatchWriteResponse(client, rateLimiter)(newResponse)
         }
     }
 
