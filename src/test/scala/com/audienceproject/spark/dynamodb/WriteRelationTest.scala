@@ -51,7 +51,4 @@ class WriteRelationTest extends AbstractInMemoryTest {
         assert(validationDs.select("weight").as[Double].collect().forall(Seq(0.1, 0.2, 0.2) contains _))
     }
 
-    test("Reading and inserting on the same table") {
-    }
-
 }

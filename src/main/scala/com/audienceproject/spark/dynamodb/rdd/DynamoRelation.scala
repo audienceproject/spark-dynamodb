@@ -76,25 +76,38 @@ private[dynamodb] class DynamoRelation(userSchema: StructType, parameters: Map[S
         val inferenceItems =
             if (dynamoConnector.nonEmpty) dynamoConnector.scan(0, Seq.empty, Seq.empty).firstPage().getLowLevelResult.getItems.asScala
             else Seq.empty
+
         val typeMapping = inferenceItems.foldLeft(Map[String, DataType]())({
-            case (map, item) =>
-                map ++ item.asMap().asScala.mapValues({
-                    case number: java.math.BigDecimal =>
-                        if (number.scale() == 0) {
-                            if (number.precision() < 10) IntegerType
-                            else if (number.precision() < 19) LongType
-                            else DataTypes.createDecimalType(number.precision(), number.scale())
-                        }
-                        else DoubleType
-                    case _: java.lang.Boolean => BooleanType
-                    case _ => StringType
-                })
+            case (map, item) => map ++ item.asMap().asScala.mapValues(inferType)
         })
         val typeSeq = typeMapping.map({ case (name, sparkType) => StructField(name, sparkType) }).toSeq
 
         if (typeSeq.size > 100) throw new RuntimeException("Schema inference not possible, too many attributes in table.")
 
         StructType(typeSeq)
+    }
+
+    private def inferType(value: Any): DataType = value match {
+        case number: java.math.BigDecimal =>
+            if (number.scale() == 0) {
+                if (number.precision() < 10) IntegerType
+                else if (number.precision() < 19) LongType
+                else DataTypes.createDecimalType(number.precision(), number.scale())
+            }
+            else DoubleType
+        case list: java.util.ArrayList[_] =>
+            if (list.isEmpty) ArrayType(StringType)
+            else ArrayType(inferType(list.get(0)))
+        case set: java.util.Set[_] =>
+            if (set.isEmpty) ArrayType(StringType)
+            else ArrayType(inferType(set.iterator().next()))
+        case map: java.util.Map[String, _] =>
+            val mapFields = (for ((fieldName, fieldValue) <- map.asScala) yield {
+                StructField(fieldName, inferType(fieldValue))
+            }).toSeq
+            StructType(mapFields)
+        case _: java.lang.Boolean => BooleanType
+        case _ => StringType
     }
 
 }
