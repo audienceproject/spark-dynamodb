@@ -26,7 +26,7 @@ import com.amazonaws.services.dynamodbv2.model.ReturnConsumedCapacity
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.sources.Filter
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types._
 import org.spark_project.guava.util.concurrent.RateLimiter
 
 import scala.annotation.tailrec
@@ -116,7 +116,8 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
 
                     // Map remaining columns.
                     columnIndices.foreach({
-                        case (name, index) if !row.isNullAt(index) => item.`with`(name, row(index))
+                        case (name, index) if !row.isNullAt(index) =>
+                            item.`with`(name, mapValue(row(index), schema(name).dataType))
                         case _ =>
                     })
 
@@ -128,6 +129,22 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
 
             handleBatchWriteResponse(client, rateLimiter)(response)
         })
+    }
+
+    private def mapValue(element: Any, elementType: DataType): Any = {
+        elementType match {
+            case ArrayType(innerType, _) => element.asInstanceOf[Seq[_]].map(e => mapValue(e, innerType)).asJava
+            case MapType(keyType, valueType, _) =>
+                if (keyType != StringType) throw new IllegalArgumentException(
+                    s"Invalid Map key type '${keyType.typeName}'. DynamoDB only supports String as Map key type.")
+                element.asInstanceOf[Map[_, _]].mapValues(e => mapValue(e, valueType)).asJava
+            case StructType(fields) =>
+                val row = element.asInstanceOf[Row]
+                (fields.indices map { i =>
+                    fields(i).name -> mapValue(row(i), fields(i).dataType)
+                }).toMap.asJava
+            case _ => element
+        }
     }
 
     @tailrec
