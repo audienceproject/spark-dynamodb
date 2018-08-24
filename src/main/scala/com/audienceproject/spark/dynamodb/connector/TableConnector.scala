@@ -24,10 +24,10 @@ import com.amazonaws.services.dynamodbv2.document._
 import com.amazonaws.services.dynamodbv2.document.spec.{BatchWriteItemSpec, ScanSpec}
 import com.amazonaws.services.dynamodbv2.model.ReturnConsumedCapacity
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
+import com.google.common.util.concurrent.RateLimiter
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types._
-import org.spark_project.guava.util.concurrent.RateLimiter
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -56,7 +56,7 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
         val readCapacity = desc.getProvisionedThroughput.getReadCapacityUnits * targetCapacity
         val writeCapacity = desc.getProvisionedThroughput.getWriteCapacityUnits * targetCapacity
 
-        val readLimit = (readCapacity / totalSegments).toInt
+        val readLimit = (readCapacity / totalSegments).toInt max 1
         val itemLimit = (bytesPerRCU / avgItemSize * readLimit).toInt * readFactor
 
         val writeLimit = (writeCapacity / totalSegments).toInt

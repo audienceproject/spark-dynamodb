@@ -23,11 +23,11 @@ package com.audienceproject.spark.dynamodb.rdd
 import com.amazonaws.services.dynamodbv2.document.Item
 import com.amazonaws.services.dynamodbv2.model.ConsumedCapacity
 import com.audienceproject.spark.dynamodb.connector.DynamoConnector
+import com.google.common.util.concurrent.RateLimiter
 import org.apache.spark.Partition
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.{StructField, StructType}
-import org.spark_project.guava.util.concurrent.RateLimiter
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
