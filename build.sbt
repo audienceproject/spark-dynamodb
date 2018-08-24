@@ -18,6 +18,17 @@ libraryDependencies += "com.google.guava" % "guava" % "14.0.1" % "provided"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test"
 
+libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.25"
+
+libraryDependencies ++= {
+    val log4j2Version = "2.11.1"
+    Seq(
+        "org.apache.logging.log4j" % "log4j-api" % log4j2Version % "test",
+        "org.apache.logging.log4j" % "log4j-core" % log4j2Version % "test",
+        "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4j2Version % "test"
+    )
+}
+
 fork in Test := true
 javaOptions in Test ++= Seq("-Djava.library.path=./lib/sqlite4java", "-Daws.dynamodb.endpoint=http://localhost:8000")
 
