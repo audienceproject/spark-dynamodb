@@ -20,7 +20,13 @@
   */
 package com.audienceproject.spark.dynamodb
 
+import java.io.File
+import java.util.jar.JarFile
+
 import com.audienceproject.spark.dynamodb.rdd.{DynamoRelation, DynamoWriteRelation}
+import com.google.common.base.Charsets
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
@@ -29,17 +35,21 @@ class DefaultSource extends RelationProvider
     with SchemaRelationProvider
     with CreatableRelationProvider {
 
+    val logger: Logger = LoggerFactory.getLogger(this.getClass.getName)
+
     override def createRelation(sqlContext: SQLContext, parameters: Map[String, String]): BaseRelation = {
         createRelation(sqlContext, parameters, null)
     }
 
     override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
                                 schema: StructType): BaseRelation = {
+        logger.info(s"Using Guava version $getGuavaVersion")
         new DynamoRelation(schema, parameters)(sqlContext)
     }
 
     override def createRelation(sqlContext: SQLContext, mode: SaveMode, parameters: Map[String, String],
                                 data: DataFrame): BaseRelation = {
+        logger.info(s"Using Guava version $getGuavaVersion")
         val writeData =
             if (parameters.get("writePartitions").contains("skip")) data
             else data.repartition(parameters.get("writePartitions").map(_.toInt).getOrElse(sqlContext.sparkContext.defaultParallelism))
@@ -48,6 +58,19 @@ class DefaultSource extends RelationProvider
 
         writeRelation.write()
         writeRelation
+    }
+
+    private def getGuavaVersion: String = try {
+        val file = new File(classOf[Charsets].getProtectionDomain.getCodeSource.getLocation.toURI)
+        try {
+            val jar = new JarFile(file)
+            try
+                jar.getManifest.getMainAttributes.getValue("Bundle-Version")
+            finally if (jar != null) jar.close()
+        }
+    } catch {
+        case ex: Exception =>
+            throw new RuntimeException("Unable to get the version of Guava", ex)
     }
 
 }

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN" name="Log4j2 configuration">
+    <Appenders>
+        <Console target="SYSTEM_OUT" name="console">
+            <PatternLayout pattern="%highlight{[%-5level][%d{HH:mm:ss.SSS}][%logger{36}]} %msg%n" />
+        </Console>
+        <Console target="SYSTEM_OUT" name="simple-console">
+            <PatternLayout pattern="%msg%n" />
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="INFO">
+            <AppenderRef ref="console" />
+        </Root>
+        <Logger name="MessageOnly" level="INFO" additivity="false">
+            <AppenderRef ref="simple-console"/>
+        </Logger>
+    </Loggers>
+</Configuration>
