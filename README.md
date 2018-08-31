@@ -18,7 +18,7 @@ Plug-and-play implementation of an Apache Spark custom data source for AWS Dynam
 import com.audienceproject.spark.dynamodb.implicits._
 
 // Load a DataFrame from a Dynamo table. Only incurs the cost of a single scan for schema inference.
-val dynamoDf = spark.dynamodb("SomeTableName") // <-- DataFrame of Row objects with inferred schema.
+val dynamoDf = spark.read.dynamodb("SomeTableName") // <-- DataFrame of Row objects with inferred schema.
 
 // Scan the table for the first 100 items (the order is arbitrary) and print them.
 dynamoDf.show(100)

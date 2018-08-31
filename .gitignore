@@ -1,5 +1,7 @@
+/target/
+/bin/
 *.class
 *.log
+.classpath
 .idea
-target/
 .wercker
