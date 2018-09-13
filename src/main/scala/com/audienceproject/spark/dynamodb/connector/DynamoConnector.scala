@@ -45,7 +45,7 @@ private[dynamodb] trait DynamoConnector {
 
     val keySchema: KeySchema
 
-    val readLimit: Int
+    val readLimit: Double
 
     val itemLimit: Int
 

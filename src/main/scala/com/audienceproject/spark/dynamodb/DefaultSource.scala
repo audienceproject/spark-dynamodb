@@ -62,15 +62,12 @@ class DefaultSource extends RelationProvider
 
     private def getGuavaVersion: String = try {
         val file = new File(classOf[Charsets].getProtectionDomain.getCodeSource.getLocation.toURI)
-        try {
-            val jar = new JarFile(file)
-            try
-                jar.getManifest.getMainAttributes.getValue("Bundle-Version")
-            finally if (jar != null) jar.close()
-        }
+        val jar = new JarFile(file)
+        try
+            jar.getManifest.getMainAttributes.getValue("Bundle-Version")
+        finally if (jar != null) jar.close()
     } catch {
-        case ex: Exception =>
-            throw new RuntimeException("Unable to get the version of Guava", ex)
+        case ex: Exception => throw new RuntimeException("Unable to get the version of Guava", ex)
     }
 
 }

@@ -25,7 +25,7 @@ import org.apache.spark.sql.types.StructType
 
 trait DynamoWritable {
 
-    val writeLimit: Int
+    val writeLimit: Double
 
     def putItems(schema: StructType, batchSize: Int)(items: Iterator[Row]): Unit
 

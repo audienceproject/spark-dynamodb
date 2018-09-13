@@ -46,7 +46,7 @@ private[dynamodb] class ScanPartition(schema: StructType,
 
         if (connector.isEmpty) return Iterator.empty
 
-        val rateLimiter = RateLimiter.create(connector.readLimit max 1)
+        val rateLimiter = RateLimiter.create(connector.readLimit)
 
         val scanResult = connector.scan(index, requiredColumns, filters)
 
