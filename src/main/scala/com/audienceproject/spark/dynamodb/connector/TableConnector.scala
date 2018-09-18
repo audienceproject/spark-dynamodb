@@ -99,7 +99,7 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
         val rateLimiter = RateLimiter.create(writeLimit max 1)
         val client = getDynamoDBClient
 
-        val updateExpression = s"SET ${columnIndices.map(c => s"${c._1}=:${c._1}").mkString(", ")}"
+
 
         // For each item.
         items.foreach(row => {
@@ -110,8 +110,9 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
                         rangeKey-> mapValueToAttributeValue(row(rangeKeyIndex.get), schema(rangeKey).dataType))
 
             }
-
-            val expressionAttributeValues = columnIndices.map(c => s":${c._1}" -> mapValueToAttributeValue(row(c._2), schema(c._1).dataType)).toMap.asJava
+            val nonNullColumnIndices =columnIndices.filter(c => row(c._2)!=null)
+            val updateExpression = s"SET ${nonNullColumnIndices.map(c => s"${c._1}=:${c._1}").mkString(", ")}"
+            val expressionAttributeValues = nonNullColumnIndices.map(c => s":${c._1}" -> mapValueToAttributeValue(row(c._2), schema(c._1).dataType)).toMap.asJava
             val updateItemReq = new UpdateItemRequest()
                 .withReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
               .withTableName(tableName)
