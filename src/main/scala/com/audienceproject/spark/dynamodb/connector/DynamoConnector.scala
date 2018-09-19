@@ -29,22 +29,22 @@ import org.apache.spark.sql.sources.Filter
 
 private[dynamodb] trait DynamoConnector {
 
-    def getDynamoDB: DynamoDB = {
-        val client: AmazonDynamoDB = getDynamoDBClient
+    def getDynamoDB(region:Option[String]=None): DynamoDB = {
+        val client: AmazonDynamoDB = getDynamoDBClient(region)
         new DynamoDB(client)
     }
 
-    def getDynamoDBClient = {
+    def getDynamoDBClient(region:Option[String]=None) = {
+        val chosenRegion = region.getOrElse(sys.env.getOrElse("aws.dynamodb.region", "us-east-1"))
         Option(System.getProperty("aws.dynamodb.endpoint")).map(endpoint => {
-            val region = sys.env.getOrElse("aws.dynamodb.region", "us-east-1")
             val credentials = Option(System.getProperty("aws.profile"))
                 .map(new ProfileCredentialsProvider(_))
                 .getOrElse(new DefaultAWSCredentialsProviderChain)
             AmazonDynamoDBClientBuilder.standard()
                 .withCredentials(credentials)
-                .withEndpointConfiguration(new EndpointConfiguration(endpoint, region))
+                .withEndpointConfiguration(new EndpointConfiguration(endpoint, chosenRegion))
                 .build()
-        }).getOrElse(AmazonDynamoDBClientBuilder.defaultClient())
+        }).getOrElse(AmazonDynamoDBClientBuilder.standard().withRegion(chosenRegion).build())
     }
 
     val keySchema: KeySchema
