@@ -29,8 +29,9 @@ import com.audienceproject.spark.dynamodb.implicits._
 class RegionTest extends AbstractInMemoryTest {
 
     test("Inserting from a local Dataset") {
+        val tableName = "RegionTest1"
         dynamoDB.createTable(new CreateTableRequest()
-            .withTableName("InsertTest1")
+            .withTableName(tableName)
             .withAttributeDefinitions(new AttributeDefinition("name", "S"))
             .withKeySchema(new KeySchemaElement("name", "HASH"))
             .withProvisionedThroughput(new ProvisionedThroughput(5L, 5L)))
@@ -39,7 +40,7 @@ class RegionTest extends AbstractInMemoryTest {
             .build()
         val dynamoDBEU: DynamoDB = new DynamoDB(client)
         dynamoDBEU.createTable(new CreateTableRequest()
-            .withTableName("InsertTest1")
+            .withTableName(tableName)
             .withAttributeDefinitions(new AttributeDefinition("name", "S"))
             .withKeySchema(new KeySchemaElement("name", "HASH"))
             .withProvisionedThroughput(new ProvisionedThroughput(5L, 5L)))
@@ -54,11 +55,11 @@ class RegionTest extends AbstractInMemoryTest {
             .withColumnRenamed("_1", "name")
             .withColumnRenamed("_2", "color")
             .withColumnRenamed("_3", "weight")
-        newItemsDs.write.option("region","eu-central-1").dynamodb("InsertTest1")
+        newItemsDs.write.option("region","eu-central-1").dynamodb(tableName)
 
-        val validationDs = spark.read.dynamodb("InsertTest1")
+        val validationDs = spark.read.dynamodb(tableName)
         assert(validationDs.count() === 0)
-        val validationDsEU = spark.read.option("region","eu-central-1").dynamodb("InsertTest1")
+        val validationDsEU = spark.read.option("region","eu-central-1").dynamodb(tableName)
         assert(validationDsEU.count() === 3)
     }
 
