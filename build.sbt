@@ -2,7 +2,7 @@ organization := "com.audienceproject"
 
 name := "spark-dynamodb"
 
-version := "0.3.2-SNAPSHOT"
+version := "0.3.3-SNAPSHOT"
 
 description := "Plug-and-play implementation of an Apache Spark custom data source for AWS DynamoDB."
 
@@ -60,6 +60,13 @@ pomExtra := <url>https://github.com/audienceproject/spark-dynamodb</url>
             <id>jacobfi</id>
             <name>Jacob Fischer</name>
             <email>jacob.fischer@audienceproject.com</email>
+            <organization>AudienceProject</organization>
+            <organizationUrl>https://www.audienceproject.com</organizationUrl>
+        </developer>
+        <developer>
+            <id>johsbk</id>
+            <name>Johs Kristoffersen</name>
+            <email>johs.kristoffersen@audienceproject.com</email>
             <organization>AudienceProject</organization>
             <organizationUrl>https://www.audienceproject.com</organizationUrl>
         </developer>
