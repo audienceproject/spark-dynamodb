@@ -23,7 +23,7 @@ package com.audienceproject.spark.dynamodb
 import java.io.File
 import java.util.jar.JarFile
 
-import com.audienceproject.spark.dynamodb.rdd.{DynamoRelation, DynamoUpdateRelation, DynamoWriteRelation}
+import com.audienceproject.spark.dynamodb.rdd.{DynamoRelation, DynamoWriteRelation}
 import com.google.common.base.Charsets
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -54,15 +54,14 @@ class DefaultSource extends RelationProvider
             if (parameters.get("writePartitions").contains("skip")) data
             else data.repartition(parameters.get("writePartitions").map(_.toInt).getOrElse(sqlContext.sparkContext.defaultParallelism))
 
+        val writeRelation= new DynamoWriteRelation(writeData, parameters)(sqlContext)
         if (parameters.getOrElse("update","false").toBoolean) {
-            val updateRelation = new DynamoUpdateRelation(writeData, parameters)(sqlContext)
-            updateRelation.write()
-            updateRelation
+            writeRelation.update()
         } else {
-            val writeRelation= new DynamoWriteRelation(writeData, parameters)(sqlContext)
             writeRelation.write()
-            writeRelation
+
         }
+        writeRelation
 
     }
 
