@@ -22,6 +22,7 @@ package com.audienceproject.spark.dynamodb
 
 import com.amazonaws.services.dynamodbv2.model.{AttributeDefinition, CreateTableRequest, KeySchemaElement, ProvisionedThroughput}
 import com.audienceproject.spark.dynamodb.implicits._
+import org.apache.spark.sql.functions.{length, lit, when}
 
 class WriteRelationTest extends AbstractInMemoryTest {
 
@@ -50,5 +51,67 @@ class WriteRelationTest extends AbstractInMemoryTest {
         assert(validationDs.select("color").as[String].collect().forall(Seq("yellow", "orange", "red") contains _))
         assert(validationDs.select("weight").as[Double].collect().forall(Seq(0.1, 0.2, 0.2) contains _))
     }
+    test("Updating from a local Dataset with new and only some previous columns") {
+        val tablename = "UpdateTest1"
+        dynamoDB.createTable(new CreateTableRequest()
+            .withTableName(tablename)
+            .withAttributeDefinitions(new AttributeDefinition("name", "S"))
+            .withKeySchema(new KeySchemaElement("name", "HASH"))
+            .withProvisionedThroughput(new ProvisionedThroughput(5L, 5L)))
 
+        import spark.implicits._
+
+        val newItemsDs = Seq(
+            ("lemon", "yellow", 0.1),
+            ("orange", "orange", 0.2),
+            ("pomegranate", "red", 0.2)
+        ).toDF("name","color","weight")
+        newItemsDs.write.dynamodb(tablename)
+
+        newItemsDs
+            .withColumn("size",length($"color"))
+            .drop("color")
+            .withColumn("weight",$"weight"*2)
+            .write.option("update","true").dynamodb(tablename)
+
+        val validationDs = spark.read.dynamodb(tablename)
+        validationDs.show
+        assert(validationDs.count() === 3)
+        assert(validationDs.select("name").as[String].collect().forall(Seq("lemon", "orange", "pomegranate") contains _))
+        assert(validationDs.select("color").as[String].collect().forall(Seq("yellow", "orange", "red") contains _))
+        assert(validationDs.select("weight").as[Double].collect().forall(Seq(0.2, 0.4, 0.4) contains _))
+        assert(validationDs.select("size").as[Long].collect().forall(Seq(6,3) contains _))
+
+    }
+
+    test("Updating from a local Dataset with null values") {
+        val tablename = "UpdateTest2"
+        dynamoDB.createTable(new CreateTableRequest()
+            .withTableName(tablename)
+            .withAttributeDefinitions(new AttributeDefinition("name", "S"))
+            .withKeySchema(new KeySchemaElement("name", "HASH"))
+            .withProvisionedThroughput(new ProvisionedThroughput(5L, 5L)))
+
+        import spark.implicits._
+
+        val newItemsDs = Seq(
+            ("lemon", "yellow", 0.1),
+            ("orange", "orange", 0.2),
+            ("pomegranate", "red", 0.2)
+        ).toDF("name","color","weight")
+        newItemsDs.write.dynamodb(tablename)
+
+        val alteredDs = newItemsDs
+            .withColumn("weight",when($"weight" < 0.2,$"weight").otherwise(lit(null)))
+        alteredDs.show
+        alteredDs.write.option("update","true").dynamodb(tablename)
+
+        val validationDs = spark.read.dynamodb(tablename)
+        validationDs.show
+        assert(validationDs.count() === 3)
+        assert(validationDs.select("name").as[String].collect().forall(Seq("lemon", "orange", "pomegranate") contains _))
+        assert(validationDs.select("color").as[String].collect().forall(Seq("yellow", "orange", "red") contains _))
+        assert(validationDs.select("weight").as[Double].collect().forall(Seq(0.2, 0.1) contains _))
+
+    }
 }

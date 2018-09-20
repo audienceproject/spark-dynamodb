@@ -18,10 +18,14 @@ Plug-and-play implementation of an Apache Spark custom data source for AWS Dynam
 import com.audienceproject.spark.dynamodb.implicits._
 
 // Load a DataFrame from a Dynamo table. Only incurs the cost of a single scan for schema inference.
-val dynamoDf = spark.dynamodb("SomeTableName") // <-- DataFrame of Row objects with inferred schema.
+val dynamoDf = spark.read.dynamodb("SomeTableName") // <-- DataFrame of Row objects with inferred schema.
+
 
 // Scan the table for the first 100 items (the order is arbitrary) and print them.
 dynamoDf.show(100)
+
+// write to some other table overwriting existing item with same keys
+dynamoDf.write.dynamodb("SomeOtherTable")
 
 // Case class representing the items in our table.
 import com.audienceproject.spark.dynamodb.attribute
@@ -32,6 +36,9 @@ import org.apache.spark.sql.functions._
 import spark.implicits._
 val vegetableDs = spark.dynamodbAs[Vegetable]("VegeTable")
 val avgWeightByColor = vegetableDs.agg($"color", avg($"weightKg")) // The column is called 'weightKg' in the Dataset.
+
+
+
 ```
 
 ## Getting The Dependency
@@ -41,6 +48,10 @@ The library is available from Maven Central. Add the dependency in SBT as ```"co
 Spark is used in the library as a "provided" dependency, which means Spark has to be installed separately on the container where the application is running, such as is the case on AWS EMR.
 
 ## Parameters
+The following parameters can be set as options on the Spark reader and writer object before loading/saving.
+- `region` sets the region where the dynamodb table. Default is environment specific.
+
+
 The following parameters can be set as options on the Spark reader object before loading.
 
 - `readPartitions` number of partitions to split the initial RDD when loading the data into Spark. Corresponds 1-to-1 with total number of segments in the DynamoDB parallel scan used to load the data. Defaults to `sparkContext.defaultParallelism`
@@ -53,6 +64,7 @@ The following parameters can be set as options on the Spark writer object before
 
 - `writePartitions` number of partitions to split the given DataFrame into when writing to DynamoDB. Set to `skip` to avoid repartitioning the DataFrame before writing. Defaults to `sparkContext.defaultParallelism`
 - `writeBatchSize` number of items to send per call to DynamoDB BatchWriteItem. Default 25.
+- `update` if true writes will be using UpdateItem on keys rather than BatchWriteItem. Default false 
 
 ## Running Unit Tests
 The unit tests are dependent on the AWS DynamoDBLocal client, which in turn is dependent on [sqlite4java](https://bitbucket.org/almworks/sqlite4java/src/master/). I had some problems running this on OSX, so I had to put the library directly in the /lib folder, as graciously explained in [this Stack Overflow answer](https://stackoverflow.com/questions/34137043/amazon-dynamodb-local-unknown-error-exception-or-failure/35353377#35353377).
