@@ -20,7 +20,6 @@ import com.audienceproject.spark.dynamodb.implicits._
 // Load a DataFrame from a Dynamo table. Only incurs the cost of a single scan for schema inference.
 val dynamoDf = spark.read.dynamodb("SomeTableName") // <-- DataFrame of Row objects with inferred schema.
 
-
 // Scan the table for the first 100 items (the order is arbitrary) and print them.
 dynamoDf.show(100)
 
@@ -34,7 +33,7 @@ case class Vegetable (name: String, color: String, @attribute("weight_kg") weigh
 // Load a Dataset[Vegetable]. Notice the @attribute annotation on the case class - we imagine the weight attribute is named with an underscore in DynamoDB.
 import org.apache.spark.sql.functions._
 import spark.implicits._
-val vegetableDs = spark.dynamodbAs[Vegetable]("VegeTable")
+val vegetableDs = spark.read.dynamodbAs[Vegetable]("VegeTable")
 val avgWeightByColor = vegetableDs.agg($"color", avg($"weightKg")) // The column is called 'weightKg' in the Dataset.
 
 
