@@ -23,29 +23,33 @@ package com.audienceproject.spark.dynamodb.connector
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
+import com.amazonaws.services.dynamodbv2.{AmazonDynamoDB, AmazonDynamoDBClientBuilder}
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB, ItemCollection, ScanOutcome}
 import org.apache.spark.sql.sources.Filter
 
 private[dynamodb] trait DynamoConnector {
 
-    def getClient: DynamoDB = {
-        val client = Option(System.getProperty("aws.dynamodb.endpoint")).map(endpoint => {
-            val region = sys.env.getOrElse("aws.dynamodb.region", "us-east-1")
+    def getDynamoDB(region:Option[String]=None): DynamoDB = {
+        val client: AmazonDynamoDB = getDynamoDBClient(region)
+        new DynamoDB(client)
+    }
+
+    def getDynamoDBClient(region:Option[String]=None) = {
+        val chosenRegion = region.getOrElse(sys.env.getOrElse("aws.dynamodb.region", "us-east-1"))
+        Option(System.getProperty("aws.dynamodb.endpoint")).map(endpoint => {
             val credentials = Option(System.getProperty("aws.profile"))
                 .map(new ProfileCredentialsProvider(_))
                 .getOrElse(new DefaultAWSCredentialsProviderChain)
             AmazonDynamoDBClientBuilder.standard()
                 .withCredentials(credentials)
-                .withEndpointConfiguration(new EndpointConfiguration(endpoint, region))
+                .withEndpointConfiguration(new EndpointConfiguration(endpoint, chosenRegion))
                 .build()
-        }).getOrElse(AmazonDynamoDBClientBuilder.defaultClient())
-        new DynamoDB(client)
+        }).getOrElse(AmazonDynamoDBClientBuilder.standard().withRegion(chosenRegion).build())
     }
 
     val keySchema: KeySchema
 
-    val readLimit: Int
+    val readLimit: Double
 
     val itemLimit: Int
 

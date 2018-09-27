@@ -23,10 +23,9 @@ package com.audienceproject.spark.dynamodb.connector
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
 
-trait DynamoWritable {
+trait DynamoUpdatable {
 
-    val writeLimit: Double
 
-    def putItems(schema: StructType, batchSize: Int)(items: Iterator[Row]): Unit
+    def updateItems(schema: StructType)(items: Iterator[Row]): Unit
 
 }

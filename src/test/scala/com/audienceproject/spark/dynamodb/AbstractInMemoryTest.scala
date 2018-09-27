@@ -70,6 +70,7 @@ class AbstractInMemoryTest extends FunSuite with BeforeAndAfterAll {
     }
 
     override def afterAll(): Unit = {
+        client.deleteTable("TestFruit")
         server.stop()
     }
 

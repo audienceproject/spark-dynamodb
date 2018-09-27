@@ -54,23 +54,25 @@ class DefaultSource extends RelationProvider
             if (parameters.get("writePartitions").contains("skip")) data
             else data.repartition(parameters.get("writePartitions").map(_.toInt).getOrElse(sqlContext.sparkContext.defaultParallelism))
 
-        val writeRelation = new DynamoWriteRelation(writeData, parameters)(sqlContext)
+        val writeRelation= new DynamoWriteRelation(writeData, parameters)(sqlContext)
+        if (parameters.getOrElse("update","false").toBoolean) {
+            writeRelation.update()
+        } else {
+            writeRelation.write()
 
-        writeRelation.write()
+        }
         writeRelation
+
     }
 
     private def getGuavaVersion: String = try {
         val file = new File(classOf[Charsets].getProtectionDomain.getCodeSource.getLocation.toURI)
-        try {
-            val jar = new JarFile(file)
-            try
-                jar.getManifest.getMainAttributes.getValue("Bundle-Version")
-            finally if (jar != null) jar.close()
-        }
+        val jar = new JarFile(file)
+        try
+            jar.getManifest.getMainAttributes.getValue("Bundle-Version")
+        finally if (jar != null) jar.close()
     } catch {
-        case ex: Exception =>
-            throw new RuntimeException("Unable to get the version of Guava", ex)
+        case ex: Exception => throw new RuntimeException("Unable to get the version of Guava", ex)
     }
 
 }
