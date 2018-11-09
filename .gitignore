@@ -5,3 +5,5 @@
 .classpath
 .idea
 .wercker
+project/target
+project/project
