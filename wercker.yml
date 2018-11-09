@@ -1,21 +1,33 @@
-box: bigtruedata/sbt:0.13.15-2.11
+box:
+    id: audienceproject/jvm
+    username: $DOCKERHUB_ACCOUNT
+    password: $DOCKERHUB_PASSWORD
+    tag: latest
 
 build:
-  steps:
+    steps:
     - script:
-      name: Compile
-      code: |
-        sbt clean compile
+          name: Compile
+          code: |
+              sbt clean compile dependencyUpdates
+    - script:
+          name: Clean again
+          code: |
+              sbt clean
 
-publish:
-  steps:
-    - script:
-      name: Publish
-      code: |
-        mkdir -p ~/.sbt/0.13/
-        touch ~/.sbt/0.13/sonatype.sbt
-        echo 'credentials += Credentials("Sonatype Nexus Repository Manager",' >> ~/.sbt/0.13/sonatype.sbt
-        echo '                           "oss.sonatype.org",' >> ~/.sbt/0.13/sonatype.sbt
-        echo '                           "'$NEXUS_USER'",' >> ~/.sbt/0.13/sonatype.sbt
-        echo '                           "'$NEXUS_PASSWORD'")' >> ~/.sbt/0.13/sonatype.sbt
-        sbt publish
+publish-snapshot:
+    steps:
+    - audienceproject/sbt-to-maven-central@2.0.0:
+          user: $NEXUS_USER
+          password: $NEXUS_PASSWORD
+          private-key: $NEXUS_PK
+          passphrase: $NEXUS_PASSPHRASE
+
+publish-release:
+    steps:
+    - audienceproject/sbt-to-maven-central@2.0.0:
+          user: $NEXUS_USER
+          password: $NEXUS_PASSWORD
+          private-key: $NEXUS_PK
+          passphrase: $NEXUS_PASSPHRASE
+          destination: RELEASE
