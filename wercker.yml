@@ -9,7 +9,7 @@ build:
     - script:
           name: Compile
           code: |
-              sbt clean compile dependencyUpdates
+              sbt clean compile
     - script:
           name: Clean again
           code: |
