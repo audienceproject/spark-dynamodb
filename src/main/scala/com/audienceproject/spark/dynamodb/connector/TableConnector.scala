@@ -51,11 +51,19 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
         val targetCapacity = parameters.getOrElse("targetCapacity", "1").toDouble
         val readFactor = if (consistentRead) 1 else 2
 
+        // Provisioned or on-demand throughput.
+        val readThroughput = Option(desc.getProvisionedThroughput.getReadCapacityUnits)
+            .filter(_ > 0).map(_.longValue())
+            .getOrElse(100L)
+        val writeThroughput = Option(desc.getProvisionedThroughput.getWriteCapacityUnits)
+            .filter(_ > 0).map(_.longValue())
+            .getOrElse(100L)
+
         // Rate limit calculation.
         val tableSize = desc.getTableSizeBytes
         val avgItemSize = tableSize.toDouble / desc.getItemCount
-        val readCapacity = desc.getProvisionedThroughput.getReadCapacityUnits * targetCapacity
-        val writeCapacity = desc.getProvisionedThroughput.getWriteCapacityUnits * targetCapacity
+        val readCapacity = readThroughput * targetCapacity
+        val writeCapacity = writeThroughput * targetCapacity
 
         val readLimit = readCapacity / totalSegments
         val itemLimit = ((bytesPerRCU / avgItemSize * readLimit).toInt * readFactor) max 1
@@ -100,26 +108,24 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
         val rateLimiter = RateLimiter.create(writeLimit max 1)
         val client = getDynamoDBClient(region)
 
-
-
         // For each item.
         items.foreach(row => {
-            val key:Map[String,AttributeValue] = keySchema match {
-                case KeySchema(hashKey, None) => Map(hashKey ->  mapValueToAttributeValue(row(hashKeyIndex), schema(hashKey).dataType))
+            val key: Map[String, AttributeValue] = keySchema match {
+                case KeySchema(hashKey, None) => Map(hashKey -> mapValueToAttributeValue(row(hashKeyIndex), schema(hashKey).dataType))
                 case KeySchema(hashKey, Some(rangeKey)) =>
-                    Map(hashKey ->  mapValueToAttributeValue(row(hashKeyIndex), schema(hashKey).dataType),
-                        rangeKey-> mapValueToAttributeValue(row(rangeKeyIndex.get), schema(rangeKey).dataType))
+                    Map(hashKey -> mapValueToAttributeValue(row(hashKeyIndex), schema(hashKey).dataType),
+                        rangeKey -> mapValueToAttributeValue(row(rangeKeyIndex.get), schema(rangeKey).dataType))
 
             }
-            val nonNullColumnIndices =columnIndices.filter(c => row(c._2)!=null)
+            val nonNullColumnIndices = columnIndices.filter(c => row(c._2) != null)
             val updateExpression = s"SET ${nonNullColumnIndices.map(c => s"${c._1}=:${c._1}").mkString(", ")}"
             val expressionAttributeValues = nonNullColumnIndices.map(c => s":${c._1}" -> mapValueToAttributeValue(row(c._2), schema(c._1).dataType)).toMap.asJava
             val updateItemReq = new UpdateItemRequest()
                 .withReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
-              .withTableName(tableName)
-              .withKey(key.asJava)
-              .withUpdateExpression(updateExpression)
-              .withExpressionAttributeValues(expressionAttributeValues)
+                .withTableName(tableName)
+                .withKey(key.asJava)
+                .withUpdateExpression(updateExpression)
+                .withExpressionAttributeValues(expressionAttributeValues)
 
             val updateItemResult = client.updateItem(updateItemReq)
 
@@ -191,7 +197,7 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
 
     private def mapValueToAttributeValue(element: Any, elementType: DataType): AttributeValue = {
         elementType match {
-            case ArrayType(innerType, _) => new AttributeValue().withL(element.asInstanceOf[Seq[_]].map(e => mapValueToAttributeValue(e, innerType)):_*)
+            case ArrayType(innerType, _) => new AttributeValue().withL(element.asInstanceOf[Seq[_]].map(e => mapValueToAttributeValue(e, innerType)): _*)
             case MapType(keyType, valueType, _) =>
                 if (keyType != StringType) throw new IllegalArgumentException(
                     s"Invalid Map key type '${keyType.typeName}'. DynamoDB only supports String as Map key type.")
@@ -200,7 +206,7 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
 
             case StructType(fields) =>
                 val row = element.asInstanceOf[Row]
-                new AttributeValue().withM( (fields.indices map { i =>
+                new AttributeValue().withM((fields.indices map { i =>
                     fields(i).name -> mapValueToAttributeValue(row(i), fields(i).dataType)
                 }).toMap.asJava)
             case StringType => new AttributeValue().withS(element.asInstanceOf[String])
@@ -224,8 +230,9 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
             handleBatchWriteResponse(client, rateLimiter)(newResponse)
         }
     }
+
     private def handleUpdateItemResult(rateLimiter: RateLimiter)
-                                        (result: UpdateItemResult): Unit = {
+                                      (result: UpdateItemResult): Unit = {
         // Rate limit on write capacity.
         if (result.getConsumedCapacity != null) {
             rateLimiter.acquire(result.getConsumedCapacity.getCapacityUnits.toInt)

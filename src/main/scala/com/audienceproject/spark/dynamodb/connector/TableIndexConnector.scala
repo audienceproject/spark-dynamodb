@@ -47,10 +47,15 @@ private[dynamodb] class TableIndexConnector(tableName: String, indexName: String
         val targetCapacity = parameters.getOrElse("targetCapacity", "1").toDouble
         val readFactor = if (consistentRead) 1 else 2
 
+        // Provisioned or on-demand throughput.
+        val readThroughput = Option(indexDesc.getProvisionedThroughput.getReadCapacityUnits)
+            .filter(_ > 0).map(_.longValue())
+            .getOrElse(100L)
+
         // Rate limit calculation.
         val tableSize = indexDesc.getIndexSizeBytes
         val avgItemSize = tableSize.toDouble / indexDesc.getItemCount
-        val readCapacity = indexDesc.getProvisionedThroughput.getReadCapacityUnits * targetCapacity
+        val readCapacity = readThroughput * targetCapacity
 
         val rateLimit = readCapacity / totalSegments
         val itemLimit = ((bytesPerRCU / avgItemSize * rateLimit).toInt * readFactor) max 1

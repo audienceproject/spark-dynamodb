@@ -54,8 +54,8 @@ class DefaultSource extends RelationProvider
             if (parameters.get("writePartitions").contains("skip")) data
             else data.repartition(parameters.get("writePartitions").map(_.toInt).getOrElse(sqlContext.sparkContext.defaultParallelism))
 
-        val writeRelation= new DynamoWriteRelation(writeData, parameters)(sqlContext)
-        if (parameters.getOrElse("update","false").toBoolean) {
+        val writeRelation = new DynamoWriteRelation(writeData, parameters)(sqlContext)
+        if (parameters.getOrElse("update", "false").toBoolean) {
             writeRelation.update()
         } else {
             writeRelation.write()
