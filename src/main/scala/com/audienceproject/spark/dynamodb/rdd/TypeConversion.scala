@@ -38,6 +38,7 @@ private[dynamodb] object TypeConversion {
             case DoubleType => nullableGet(_.getDouble)(attrName)
             case FloatType => nullableGet(_.getFloat)(attrName)
             case DecimalType() => nullableGet(_.getNumber)(attrName)
+            case BinaryType => nullableGet(_.getBinary)(attrName)
             case ArrayType(innerType, _) =>
                 nullableGet(_.getList)(attrName).andThen(extractArray(convertValue(innerType)))
             case MapType(keyType, valueType, _) =>
@@ -57,6 +58,10 @@ private[dynamodb] object TypeConversion {
             case DoubleType => nullableConvert(_.doubleValue())
             case FloatType => nullableConvert(_.floatValue())
             case DecimalType() => nullableConvert(identity)
+            case BinaryType => {
+                case byteArray : Array[Byte] => byteArray
+                case _ => null
+            }
             case ArrayType(innerType, _) => extractArray(convertValue(innerType))
             case MapType(keyType, valueType, _) =>
                 if (keyType != StringType) throw new IllegalArgumentException(s"Invalid Map key type '${keyType.typeName}'. DynamoDB only supports String as Map key type.")
