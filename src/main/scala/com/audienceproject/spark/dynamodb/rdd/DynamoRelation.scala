@@ -107,6 +107,7 @@ private[dynamodb] class DynamoRelation(userSchema: StructType, parameters: Map[S
             }).toSeq
             StructType(mapFields)
         case _: java.lang.Boolean => BooleanType
+        case _: Array[Byte] => BinaryType
         case _ => StringType
     }
 

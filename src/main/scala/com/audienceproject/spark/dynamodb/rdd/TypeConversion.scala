@@ -37,6 +37,7 @@ private[dynamodb] object TypeConversion {
             case LongType => nullableGet(_.getLong)(attrName)
             case DoubleType => nullableGet(_.getDouble)(attrName)
             case FloatType => nullableGet(_.getFloat)(attrName)
+            case BinaryType => nullableGet(_.getBinary)(attrName)
             case DecimalType() => nullableGet(_.getNumber)(attrName)
             case ArrayType(innerType, _) =>
                 nullableGet(_.getList)(attrName).andThen(extractArray(convertValue(innerType)))
@@ -70,6 +71,10 @@ private[dynamodb] object TypeConversion {
             }
             case StringType => {
                 case string: String => string
+                case _ => null
+            }
+            case BinaryType => {
+                case byteArray: Array[Byte] => byteArray
                 case _ => null
             }
             case _ => throw new IllegalArgumentException(s"Spark DataType '${sparkType.typeName}' could not be mapped to a corresponding DynamoDB data type.")
