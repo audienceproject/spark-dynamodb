@@ -51,6 +51,7 @@ class WriteRelationTest extends AbstractInMemoryTest {
         assert(validationDs.select("color").as[String].collect().forall(Seq("yellow", "orange", "red") contains _))
         assert(validationDs.select("weight").as[Double].collect().forall(Seq(0.1, 0.2, 0.2) contains _))
     }
+
     test("Updating from a local Dataset with new and only some previous columns") {
         val tablename = "UpdateTest1"
         dynamoDB.createTable(new CreateTableRequest()
@@ -65,14 +66,14 @@ class WriteRelationTest extends AbstractInMemoryTest {
             ("lemon", "yellow", 0.1),
             ("orange", "orange", 0.2),
             ("pomegranate", "red", 0.2)
-        ).toDF("name","color","weight")
+        ).toDF("name", "color", "weight")
         newItemsDs.write.dynamodb(tablename)
 
         newItemsDs
-            .withColumn("size",length($"color"))
+            .withColumn("size", length($"color"))
             .drop("color")
-            .withColumn("weight",$"weight"*2)
-            .write.option("update","true").dynamodb(tablename)
+            .withColumn("weight", $"weight" * 2)
+            .write.option("update", "true").dynamodb(tablename)
 
         val validationDs = spark.read.dynamodb(tablename)
         validationDs.show
@@ -80,8 +81,7 @@ class WriteRelationTest extends AbstractInMemoryTest {
         assert(validationDs.select("name").as[String].collect().forall(Seq("lemon", "orange", "pomegranate") contains _))
         assert(validationDs.select("color").as[String].collect().forall(Seq("yellow", "orange", "red") contains _))
         assert(validationDs.select("weight").as[Double].collect().forall(Seq(0.2, 0.4, 0.4) contains _))
-        assert(validationDs.select("size").as[Long].collect().forall(Seq(6,3) contains _))
-
+        assert(validationDs.select("size").as[Long].collect().forall(Seq(6, 3) contains _))
     }
 
     test("Updating from a local Dataset with null values") {
@@ -98,13 +98,13 @@ class WriteRelationTest extends AbstractInMemoryTest {
             ("lemon", "yellow", 0.1),
             ("orange", "orange", 0.2),
             ("pomegranate", "red", 0.2)
-        ).toDF("name","color","weight")
+        ).toDF("name", "color", "weight")
         newItemsDs.write.dynamodb(tablename)
 
         val alteredDs = newItemsDs
-            .withColumn("weight",when($"weight" < 0.2,$"weight").otherwise(lit(null)))
+            .withColumn("weight", when($"weight" < 0.2, $"weight").otherwise(lit(null)))
         alteredDs.show
-        alteredDs.write.option("update","true").dynamodb(tablename)
+        alteredDs.write.option("update", "true").dynamodb(tablename)
 
         val validationDs = spark.read.dynamodb(tablename)
         validationDs.show
@@ -112,6 +112,6 @@ class WriteRelationTest extends AbstractInMemoryTest {
         assert(validationDs.select("name").as[String].collect().forall(Seq("lemon", "orange", "pomegranate") contains _))
         assert(validationDs.select("color").as[String].collect().forall(Seq("yellow", "orange", "red") contains _))
         assert(validationDs.select("weight").as[Double].collect().forall(Seq(0.2, 0.1) contains _))
-
     }
+
 }

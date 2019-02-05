@@ -31,9 +31,7 @@ import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
 
-class DefaultSource extends RelationProvider
-    with SchemaRelationProvider
-    with CreatableRelationProvider {
+class DefaultSource extends RelationProvider with SchemaRelationProvider with CreatableRelationProvider {
 
     val logger: Logger = LoggerFactory.getLogger(this.getClass.getName)
 
@@ -50,19 +48,15 @@ class DefaultSource extends RelationProvider
     override def createRelation(sqlContext: SQLContext, mode: SaveMode, parameters: Map[String, String],
                                 data: DataFrame): BaseRelation = {
         logger.info(s"Using Guava version $getGuavaVersion")
-        val writeData =
-            if (parameters.get("writePartitions").contains("skip")) data
-            else data.repartition(parameters.get("writePartitions").map(_.toInt).getOrElse(sqlContext.sparkContext.defaultParallelism))
 
-        val writeRelation = new DynamoWriteRelation(writeData, parameters)(sqlContext)
-        if (parameters.getOrElse("update", "false").toBoolean) {
+        val writeRelation = new DynamoWriteRelation(data, parameters)(sqlContext)
+
+        if (parameters.getOrElse("update", "false").toBoolean)
             writeRelation.update()
-        } else {
+        else
             writeRelation.write()
 
-        }
         writeRelation
-
     }
 
     private def getGuavaVersion: String = try {

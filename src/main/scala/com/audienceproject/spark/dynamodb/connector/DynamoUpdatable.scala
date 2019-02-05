@@ -25,7 +25,6 @@ import org.apache.spark.sql.types.StructType
 
 trait DynamoUpdatable {
 
-
     def updateItems(schema: StructType)(items: Iterator[Row]): Unit
 
 }
