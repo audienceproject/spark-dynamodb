@@ -33,7 +33,11 @@ private[dynamodb] class DynamoWriteRelation(data: DataFrame, parameters: Map[Str
 
     private val tableName = parameters("tableName")
     private val batchSize = parameters.getOrElse("writeBatchSize", "25").toInt
-    private val connector = new TableConnector(tableName, sqlContext.sparkContext.defaultParallelism, parameters)
+
+    private val numPartitions = data.rdd.getNumPartitions
+    private val writeSegments = math.min(numPartitions, sqlContext.sparkContext.defaultParallelism)
+
+    private val connector = new TableConnector(tableName, writeSegments, parameters)
 
     override val schema: StructType = data.schema
 
