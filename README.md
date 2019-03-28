@@ -1,6 +1,9 @@
 # Spark+DynamoDB
 Plug-and-play implementation of an Apache Spark custom data source for AWS DynamoDB.
 
+We published a small article about the project, check it out here:
+https://www.audienceproject.com/blog/tech/sparkdynamodb-using-aws-dynamodb-data-source-apache-spark/
+
 ## Features
 
 - Distributed, parallel scan with lazy evaluation
@@ -35,9 +38,6 @@ import org.apache.spark.sql.functions._
 import spark.implicits._
 val vegetableDs = spark.read.dynamodbAs[Vegetable]("VegeTable")
 val avgWeightByColor = vegetableDs.agg($"color", avg($"weightKg")) // The column is called 'weightKg' in the Dataset.
-
-
-
 ```
 
 ## Getting The Dependency
