@@ -34,9 +34,10 @@ private[dynamodb] class TableIndexConnector(tableName: String, indexName: String
     private val consistentRead = parameters.getOrElse("stronglyConsistentReads", "false").toBoolean
     private val filterPushdown = parameters.getOrElse("filterPushdown", "true").toBoolean
     private val region = parameters.get("region")
+    private val assumedArn = parameters.get("assumedArn")
 
     override val (keySchema, readLimit, itemLimit, totalSizeInBytes) = {
-        val table = getDynamoDB(region).getTable(tableName)
+        val table = getDynamoDB(region, assumedArn).getTable(tableName)
         val indexDesc = table.describe().getGlobalSecondaryIndexes.asScala.find(_.getIndexName == indexName).get
 
         // Key schema.
@@ -81,7 +82,7 @@ private[dynamodb] class TableIndexConnector(tableName: String, indexName: String
             scanSpec.withExpressionSpec(xspec.buildForScan())
         }
 
-        getDynamoDB(region).getTable(tableName).getIndex(indexName).scan(scanSpec)
+        getDynamoDB(region, assumedArn).getTable(tableName).getIndex(indexName).scan(scanSpec)
     }
 
 }
