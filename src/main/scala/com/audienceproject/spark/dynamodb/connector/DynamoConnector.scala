@@ -36,36 +36,46 @@ private[dynamodb] trait DynamoConnector {
         new DynamoDB(client)
     }
 
+    /**
+      * Get credentials from a passed in arn or from profile or return the default credential provider
+      * */
+    private def getCredentials(chosenRegion: String, assumedArn: Option[String]) = {
+        assumedArn.map(arn => {
+            val stsClient = AWSSecurityTokenServiceClientBuilder
+                .standard()
+                .withCredentials(new DefaultAWSCredentialsProviderChain)
+                .withRegion(chosenRegion)
+                .build()
+            val assumeRoleResult = stsClient.assumeRole(
+                new AssumeRoleRequest()
+                    .withRoleSessionName("DynamoDBAssumed")
+                    .withRoleArn(arn)
+            )
+            val stsCredentials = assumeRoleResult.getCredentials
+            val assumeCreds = new BasicSessionCredentials(
+                stsCredentials.getAccessKeyId,
+                stsCredentials.getSecretAccessKey,
+                stsCredentials.getSessionToken
+            )
+            new AWSStaticCredentialsProvider(assumeCreds)
+        }).orElse(Option(System.getProperty("aws.profile")).map(new ProfileCredentialsProvider(_)))
+          .getOrElse(new DefaultAWSCredentialsProviderChain)
+    }
+
     def getDynamoDBClient(region: Option[String] = None, assumedArn: Option[String] = None): AmazonDynamoDB = {
         val chosenRegion = region.getOrElse(sys.env.getOrElse("aws.dynamodb.region", "us-east-1"))
+        val credentials = getCredentials(chosenRegion, assumedArn)
+
         Option(System.getProperty("aws.dynamodb.endpoint")).map(endpoint => {
-            val credentials = Option(System.getProperty("aws.profile"))
-                .map(new ProfileCredentialsProvider(_))
-                .getOrElse(new DefaultAWSCredentialsProviderChain)
             AmazonDynamoDBClientBuilder.standard()
                 .withCredentials(credentials)
                 .withEndpointConfiguration(new EndpointConfiguration(endpoint, chosenRegion))
                 .build()
         }).getOrElse(
-            assumedArn.map(arn => {
-                val stsClient = AWSSecurityTokenServiceClientBuilder
-                    .standard()
-                    .withCredentials(new DefaultAWSCredentialsProviderChain)
-                    .withRegion(chosenRegion)
-                    .build()
-                val assumeRoleResult = stsClient.assumeRole(
-                    new AssumeRoleRequest()
-                    .withRoleSessionName("DynamoDBAssumed")
-                    .withRoleArn(arn)
-                )
-                val stsCredentials = assumeRoleResult.getCredentials
-                val assumeCreds = new BasicSessionCredentials(
-                    stsCredentials.getAccessKeyId,
-                    stsCredentials.getSecretAccessKey,
-                    stsCredentials.getSessionToken
-                )
-                AmazonDynamoDBClientBuilder.standard().withCredentials(new AWSStaticCredentialsProvider(assumeCreds)).build()
-            }).getOrElse(AmazonDynamoDBClientBuilder.standard().withRegion(chosenRegion).build())
+            AmazonDynamoDBClientBuilder.standard()
+                .withCredentials(credentials)
+                .withRegion(chosenRegion)
+                .build()
         )
     }
 
