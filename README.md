@@ -49,6 +49,7 @@ Spark is used in the library as a "provided" dependency, which means Spark has t
 ## Parameters
 The following parameters can be set as options on the Spark reader and writer object before loading/saving.
 - `region` sets the region where the dynamodb table. Default is environment specific.
+- `assumedArn` sets an IAM role to assume. This allows for access to a DynamoDB in a different account than the spark cluster. Defaults to the standard role configuration.
 
 
 The following parameters can be set as options on the Spark reader object before loading.
