@@ -41,10 +41,10 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
     private val consistentRead = parameters.getOrElse("stronglyConsistentReads", "false").toBoolean
     private val filterPushdown = parameters.getOrElse("filterPushdown", "true").toBoolean
     private val region = parameters.get("region")
-    private val assumedArn = parameters.get("assumedArn")
+    private val roleArn = parameters.get("roleArn")
 
     override val (keySchema, readLimit, writeLimit, itemLimit, totalSizeInBytes) = {
-        val table = getDynamoDB(region, assumedArn).getTable(tableName)
+        val table = getDynamoDB(region, roleArn).getTable(tableName)
         val desc = table.describe()
 
         // Key schema.
@@ -95,7 +95,7 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
             scanSpec.withExpressionSpec(xspec.buildForScan())
         }
 
-        getDynamoDB(region, assumedArn).getTable(tableName).scan(scanSpec)
+        getDynamoDB(region, roleArn).getTable(tableName).scan(scanSpec)
     }
 
     override def putItems(schema: StructType, batchSize: Int)(items: Iterator[Row]): Unit = {
@@ -110,7 +110,7 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
         })
 
         val rateLimiter = RateLimiter.create(writeLimit max 1)
-        val client = getDynamoDB(region, assumedArn)
+        val client = getDynamoDB(region, roleArn)
 
         // For each batch.
         items.grouped(batchSize).foreach(itemBatch => {
@@ -155,7 +155,7 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
         })
 
         val rateLimiter = RateLimiter.create(writeLimit max 1)
-        val client = getDynamoDB(region, assumedArn)
+        val client = getDynamoDB(region, roleArn)
 
         // For each item.
         items.foreach(row => {
