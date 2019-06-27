@@ -24,7 +24,7 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.auth.{AWSStaticCredentialsProvider, BasicSessionCredentials, DefaultAWSCredentialsProviderChain}
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB, ItemCollection, ScanOutcome}
-import com.amazonaws.services.dynamodbv2.{AmazonDynamoDB, AmazonDynamoDBClientBuilder}
+import com.amazonaws.services.dynamodbv2.{AmazonDynamoDB, AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder, AmazonDynamoDBClientBuilder}
 import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder
 import com.amazonaws.services.securitytoken.model.AssumeRoleRequest
 import org.apache.spark.sql.sources.Filter
@@ -47,6 +47,22 @@ private[dynamodb] trait DynamoConnector {
                 .build()
         }).getOrElse(
             AmazonDynamoDBClientBuilder.standard()
+                .withCredentials(credentials)
+                .withRegion(chosenRegion)
+                .build()
+        )
+    }
+    def getDynamoDBAsyncClient(region: Option[String] = None, roleArn: Option[String] = None): AmazonDynamoDBAsync = {
+        val chosenRegion = region.getOrElse(sys.env.getOrElse("aws.dynamodb.region", "us-east-1"))
+        val credentials = getCredentials(chosenRegion, roleArn)
+
+        Option(System.getProperty("aws.dynamodb.endpoint")).map(endpoint => {
+            AmazonDynamoDBAsyncClientBuilder.standard()
+                .withCredentials(credentials)
+                .withEndpointConfiguration(new EndpointConfiguration(endpoint, chosenRegion))
+                .build()
+        }).getOrElse(
+            AmazonDynamoDBAsyncClientBuilder.standard()
                 .withCredentials(credentials)
                 .withRegion(chosenRegion)
                 .build()

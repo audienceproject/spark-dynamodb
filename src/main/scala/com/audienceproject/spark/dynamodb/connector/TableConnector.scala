@@ -24,7 +24,7 @@ import java.util
 
 import com.amazonaws.services.dynamodbv2.document._
 import com.amazonaws.services.dynamodbv2.document.spec.{BatchWriteItemSpec, ScanSpec, UpdateItemSpec}
-import com.amazonaws.services.dynamodbv2.model.ReturnConsumedCapacity
+import com.amazonaws.services.dynamodbv2.model.{AttributeValue, ReturnConsumedCapacity, UpdateItemRequest}
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{BOOL => newBOOL, L => newL, M => newM, N => newN, S => newS}
 import com.google.common.util.concurrent.RateLimiter
@@ -143,7 +143,7 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
         })
     }
 
-    override def updateItems(schema: StructType)(items: Iterator[Row]): Unit = {
+    override def updateItems(schema: StructType,batchSize: Int)(items: Iterator[Row]): Unit = {
         val columnNames = schema.map(_.name)
         val hashKeyIndex = columnNames.indexOf(keySchema.hashKeyName)
         val rangeKeyIndex = keySchema.rangeKeyName.map(columnNames.indexOf)
@@ -155,48 +155,38 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
         })
 
         val rateLimiter = RateLimiter.create(writeLimit max 1)
-        val client = getDynamoDB(region, roleArn)
+        val client = getDynamoDBAsyncClient(region,roleArn)
+
+
 
         // For each item.
-        items.foreach(row => {
-            // Build update expression.
-            val xspec = new ExpressionSpecBuilder()
-            columnIndices.foreach({
-                case (name, index) if !row.isNullAt(index) =>
-                    val updateAction = schema(name).dataType match {
-                        case StringType => newS(name).set(row.getString(index))
-                        case BooleanType => newBOOL(name).set(row.getBoolean(index))
-                        case IntegerType => newN(name).set(row.getInt(index))
-                        case LongType => newN(name).set(row.getLong(index))
-                        case ShortType => newN(name).set(row.getShort(index))
-                        case FloatType => newN(name).set(row.getFloat(index))
-                        case DoubleType => newN(name).set(row.getDouble(index))
-                        case ArrayType(innerType, _) => newL(name).set(row.getSeq[Any](index).map(e => mapValue(e, innerType)).asJava)
-                        case MapType(keyType, valueType, _) =>
-                            if (keyType != StringType) throw new IllegalArgumentException(
-                                s"Invalid Map key type '${keyType.typeName}'. DynamoDB only supports String as Map key type.")
-                            newM(name).set(row.getMap[String, Any](index).mapValues(e => mapValue(e, valueType)).asJava)
-                        case StructType(fields) => newM(name).set(mapStruct(row.getStruct(index), fields))
-                    }
-                    xspec.addUpdate(updateAction)
-                case _ =>
+        items.grouped(batchSize).foreach(itemBatch => {
+            val results = itemBatch.map(row => {
+                val key:Map[String,AttributeValue] = keySchema match {
+                    case KeySchema(hashKey, None) => Map(hashKey ->  mapValueToAttributeValue(row(hashKeyIndex), schema(hashKey).dataType))
+                    case KeySchema(hashKey, Some(rangeKey)) =>
+                        Map(hashKey ->  mapValueToAttributeValue(row(hashKeyIndex), schema(hashKey).dataType),
+                            rangeKey-> mapValueToAttributeValue(row(rangeKeyIndex.get), schema(rangeKey).dataType))
+
+                }
+                val nonNullColumnIndices =columnIndices.filter(c => row(c._2)!=null)
+                val updateExpression = s"SET ${nonNullColumnIndices.map(c => s"#${c._2}=:${c._2}").mkString(", ")}"
+                val expressionAttributeValues = nonNullColumnIndices.map(c => s":${c._2}" -> mapValueToAttributeValue(row(c._2), schema(c._1).dataType)).toMap.asJava
+                val updateItemReq = new UpdateItemRequest()
+                    .withReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
+                    .withTableName(tableName)
+                    .withKey(key.asJava)
+                    .withUpdateExpression(updateExpression)
+                    .withExpressionAttributeNames(nonNullColumnIndices.map(c=>s"#${c._2}" -> c._1).toMap.asJava)
+                    .withExpressionAttributeValues(expressionAttributeValues)
+
+                client.updateItemAsync(updateItemReq)
             })
-
-            val updateItemSpec = new UpdateItemSpec()
-                .withExpressionSpec(xspec.buildForUpdate())
-                .withReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
-
-            // Map primary key.
-            keySchema match {
-                case KeySchema(hashKey, None) => updateItemSpec.withPrimaryKey(hashKey, row(hashKeyIndex))
-                case KeySchema(hashKey, Some(rangeKey)) =>
-                    updateItemSpec.withPrimaryKey(hashKey, row(hashKeyIndex), rangeKey, row(rangeKeyIndex.get))
-            }
-
-            if (updateItemSpec.getUpdateExpression.nonEmpty) {
-                val response = client.getTable(tableName).updateItem(updateItemSpec)
-                handleUpdateResponse(rateLimiter)(response)
-            }
+            val unitsSpent = results.map(f => (try { Option(f.get()) } catch { case _:Exception => Option.empty })
+                .flatMap(c => Option(c.getConsumedCapacity))
+                .map(_.getCapacityUnits)
+                .getOrElse(Double.box(1.0))).reduce((a,b)=>a+b)
+            rateLimiter.acquire(unitsSpent.toInt)
         })
     }
 
@@ -211,6 +201,26 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
                 val row = element.asInstanceOf[Row]
                 mapStruct(row, fields)
             case _ => element
+        }
+    }
+
+    private def mapValueToAttributeValue(element: Any, elementType: DataType): AttributeValue = {
+        elementType match {
+            case ArrayType(innerType, _) => new AttributeValue().withL(element.asInstanceOf[Seq[_]].map(e => mapValueToAttributeValue(e, innerType)):_*)
+            case MapType(keyType, valueType, _) =>
+                if (keyType != StringType) throw new IllegalArgumentException(
+                    s"Invalid Map key type '${keyType.typeName}'. DynamoDB only supports String as Map key type.")
+
+                new AttributeValue().withM(element.asInstanceOf[Map[String, _]].mapValues(e => mapValueToAttributeValue(e, valueType)).asJava)
+
+            case StructType(fields) =>
+                val row = element.asInstanceOf[Row]
+                new AttributeValue().withM( (fields.indices map { i =>
+                    fields(i).name -> mapValueToAttributeValue(row(i), fields(i).dataType)
+                }).toMap.asJava)
+            case StringType => new AttributeValue().withS(element.asInstanceOf[String])
+            case LongType | IntegerType | DoubleType | FloatType => new AttributeValue().withN(element.toString)
+            case BooleanType => new AttributeValue().withBOOL(element.asInstanceOf[Boolean])
         }
     }
 
