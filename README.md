@@ -17,6 +17,7 @@ https://www.audienceproject.com/blog/tech/sparkdynamodb-using-aws-dynamodb-data-
 
 ## Quick Start Guide
 
+### Scala
 ```scala
 import com.audienceproject.spark.dynamodb.implicits._
 
@@ -40,9 +41,30 @@ val vegetableDs = spark.read.dynamodbAs[Vegetable]("VegeTable")
 val avgWeightByColor = vegetableDs.agg($"color", avg($"weightKg")) // The column is called 'weightKg' in the Dataset.
 ```
 
+### Python
+```python
+# Load a DataFrame from a Dynamo table. Only incurs the cost of a single scan for schema inference.
+dynamoDf = spark.read.format("com.audienceproject.spark.dynamodb") \
+                     .option("tableName", "SomeTableName") \ 
+                     .load() # <-- DataFrame of Row objects with inferred schema.
+
+# Scan the table for the first 100 items (the order is arbitrary) and print them.
+dynamoDf.show(100)
+
+# write to some other table overwriting existing item with same keys
+dynamoDf.write.format("com.audienceproject.spark.dynamodb") \
+              .option("tableName", "SomeOtherTable")
+```
+
+*Note:* When running from `pyspark` shell, you can add the library as:
+```bash
+pyspark --packages com.audienceproject:spark-dynamodb_<spark-scala-version>:<version>
+```
+
+
 ## Getting The Dependency
 
-The library is available from Maven Central. Add the dependency in SBT as ```"com.audienceproject" %% "spark-dynamodb" % "latest"```
+The library is available from [Maven Central](https://mvnrepository.com/artifact/com.audienceproject/spark-dynamodb). Add the dependency in SBT as ```"com.audienceproject" %% "spark-dynamodb" % "latest"```
 
 Spark is used in the library as a "provided" dependency, which means Spark has to be installed separately on the container where the application is running, such as is the case on AWS EMR.
 
