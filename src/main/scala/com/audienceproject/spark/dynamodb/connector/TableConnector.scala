@@ -56,12 +56,12 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
         val readFactor = if (consistentRead) 1 else 2
 
         // Provisioned or on-demand throughput.
-        val readThroughput = Option(desc.getProvisionedThroughput.getReadCapacityUnits)
-            .filter(_ > 0).map(_.longValue())
-            .getOrElse(100L)
-        val writeThroughput = Option(desc.getProvisionedThroughput.getWriteCapacityUnits)
-            .filter(_ > 0).map(_.longValue())
-            .getOrElse(100L)
+        val readThroughput = parameters.getOrElse("throughput", Option(desc.getProvisionedThroughput.getReadCapacityUnits)
+            .filter(_ > 0).map(_.longValue().toString)
+            .getOrElse("100")).toLong
+        val writeThroughput = parameters.getOrElse("throughput", Option(desc.getProvisionedThroughput.getWriteCapacityUnits)
+            .filter(_ > 0).map(_.longValue().toString)
+            .getOrElse("100")).toLong
 
         // Rate limit calculation.
         val tableSize = desc.getTableSizeBytes
