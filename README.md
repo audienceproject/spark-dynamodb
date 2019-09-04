@@ -53,7 +53,8 @@ dynamoDf.show(100)
 
 # write to some other table overwriting existing item with same keys
 dynamoDf.write.format("com.audienceproject.spark.dynamodb") \
-              .option("tableName", "SomeOtherTable")
+              .option("tableName", "SomeOtherTable") \
+              .save()
 ```
 
 *Note:* When running from `pyspark` shell, you can add the library as:
