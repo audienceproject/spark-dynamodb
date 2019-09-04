@@ -44,16 +44,16 @@ val avgWeightByColor = vegetableDs.agg($"color", avg($"weightKg")) // The column
 ### Python
 ```python
 # Load a DataFrame from a Dynamo table. Only incurs the cost of a single scan for schema inference.
-dynamoDf = spark.read.format("com.audienceproject.spark.dynamodb") \
-                     .option("tableName", "SomeTableName") \ 
+dynamoDf = spark.read.option("tableName", "SomeTableName") \ 
+                     .format("com.audienceproject.spark.dynamodb") \
                      .load() # <-- DataFrame of Row objects with inferred schema.
 
 # Scan the table for the first 100 items (the order is arbitrary) and print them.
 dynamoDf.show(100)
 
 # write to some other table overwriting existing item with same keys
-dynamoDf.write.format("com.audienceproject.spark.dynamodb") \
-              .option("tableName", "SomeOtherTable") \
+dynamoDf.write.option("tableName", "SomeOtherTable") \
+              .format("com.audienceproject.spark.dynamodb") \
               .save()
 ```
 
