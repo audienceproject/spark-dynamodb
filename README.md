@@ -44,7 +44,7 @@ val avgWeightByColor = vegetableDs.agg($"color", avg($"weightKg")) // The column
 ### Python
 ```python
 # Load a DataFrame from a Dynamo table. Only incurs the cost of a single scan for schema inference.
-dynamoDf = spark.read.option("tableName", "SomeTableName") \ 
+dynamoDf = spark.read.option("tableName", "SomeTableName") \
                      .format("com.audienceproject.spark.dynamodb") \
                      .load() # <-- DataFrame of Row objects with inferred schema.
 
@@ -83,6 +83,8 @@ The following parameters can be set as options on the Spark reader object before
 - `bytesPerRCU` number of bytes that can be read per second with a single Read Capacity Unit. Default 4000 (4 KB). This value is multiplied by two when `stronglyConsistentReads=false`
 - `filterPushdown` whether or not to use filter pushdown to DynamoDB on scan requests. Default true.
 - `throughput` the desired read throughput to use. It overwrites any calculation used by the package. It is intended to be used with tables that are on-demand. Defaults to 100 for on-demand.
+- `itemCount` the number of items in the table. This overrides requesting it from the table itself.
+- `tableSize` the number of bytes in the table. This overrides requesting it from the table itself.
 
 The following parameters can be set as options on the Spark writer object before saving.
 
