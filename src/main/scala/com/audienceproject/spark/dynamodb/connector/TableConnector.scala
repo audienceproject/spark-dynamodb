@@ -64,8 +64,10 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
             .getOrElse("100")).toLong
 
         // Rate limit calculation.
-        val tableSize = desc.getTableSizeBytes
-        val avgItemSize = tableSize.toDouble / desc.getItemCount
+        val tableSize = parameters.getOrElse("tableSize", desc.getTableSizeBytes.toString).toLong
+        val itemCount = parameters.getOrElse("itemCount", desc.getItemCount.toString).toInt
+
+        val avgItemSize = tableSize.toDouble / itemCount
         val readCapacity = readThroughput * targetCapacity
         val writeCapacity = writeThroughput * targetCapacity
 
@@ -74,7 +76,7 @@ private[dynamodb] class TableConnector(tableName: String, totalSegments: Int, pa
 
         val writeLimit = writeCapacity / totalSegments
 
-        (keySchema, readLimit, writeLimit, itemLimit, tableSize.toLong)
+        (keySchema, readLimit, writeLimit, itemLimit, tableSize)
     }
 
     override def scan(segmentNum: Int, columns: Seq[String], filters: Seq[Filter]): ItemCollection[ScanOutcome] = {
