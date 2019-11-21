@@ -36,6 +36,8 @@ private[dynamodb] class TableIndexConnector(tableName: String, indexName: String
     private val region = parameters.get("region")
     private val roleArn = parameters.get("roleArn")
 
+    override val filterPushdownEnabled: Boolean = filterPushdown
+
     override val (keySchema, readLimit, itemLimit, totalSegments) = {
         val table = getDynamoDB(region, roleArn).getTable(tableName)
         val indexDesc = table.describe().getGlobalSecondaryIndexes.asScala.find(_.getIndexName == indexName).get

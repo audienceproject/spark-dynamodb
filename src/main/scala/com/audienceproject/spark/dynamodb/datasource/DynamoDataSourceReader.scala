@@ -22,7 +22,7 @@ package com.audienceproject.spark.dynamodb.datasource
 
 import java.util
 
-import com.audienceproject.spark.dynamodb.connector.{TableConnector, TableIndexConnector}
+import com.audienceproject.spark.dynamodb.connector.{FilterPushdown, TableConnector, TableIndexConnector}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.sources.v2.reader._
@@ -30,9 +30,12 @@ import org.apache.spark.sql.types._
 
 import scala.collection.JavaConverters._
 
-class DynamoDataSourceReader(parallelism: Int, parameters: Map[String, String]) extends DataSourceReader
-    with SupportsPushDownRequiredColumns
-    with SupportsPushDownFilters {
+class DynamoDataSourceReader(parallelism: Int,
+                             parameters: Map[String, String],
+                             userSchema: Option[StructType] = None)
+    extends DataSourceReader
+        with SupportsPushDownRequiredColumns
+        with SupportsPushDownFilters {
 
     private val tableName = parameters("tablename")
     private val indexName = parameters.get("indexName")
@@ -41,21 +44,41 @@ class DynamoDataSourceReader(parallelism: Int, parameters: Map[String, String]) 
         if (indexName.isDefined) new TableIndexConnector(tableName, indexName.get, parallelism, parameters)
         else new TableConnector(tableName, parallelism, parameters)
 
-    override lazy val readSchema: StructType = inferSchema()
+    private var acceptedFilters: Array[Filter] = Array.empty
+    private var currentSchema: StructType = _
+
+    override def readSchema(): StructType = {
+        if (currentSchema == null)
+            currentSchema = userSchema.getOrElse(inferSchema())
+        currentSchema
+    }
 
     override def planInputPartitions(): util.List[InputPartition[InternalRow]] = {
-        val inputPartitions = new util.ArrayList[InputPartition[InternalRow]]()
+        val inputPartitions = new util.ArrayList[InputPartition[InternalRow]]
         for (partitionIndex <- 0 until dynamoConnector.totalSegments) {
-            inputPartitions.add(new ScanPartition(readSchema, partitionIndex, dynamoConnector))
+            inputPartitions.add(new ScanPartition(readSchema(), partitionIndex, dynamoConnector, acceptedFilters))
         }
         inputPartitions
     }
 
-    override def pruneColumns(requiredSchema: StructType): Unit = ???
+    override def pruneColumns(requiredSchema: StructType): Unit = {
+        val schema = readSchema()
+        val keyFields = Seq(Some(dynamoConnector.keySchema.hashKeyName), dynamoConnector.keySchema.rangeKeyName).flatten
+            .flatMap(keyName => schema.fields.find(_.name == keyName))
+        val requiredFields = keyFields ++ requiredSchema.fields
+        val newFields = readSchema().fields.filter(requiredFields.contains)
+        currentSchema = StructType(newFields)
+    }
 
-    override def pushFilters(filters: Array[Filter]): Array[Filter] = ???
+    override def pushFilters(filters: Array[Filter]): Array[Filter] = {
+        if (dynamoConnector.filterPushdownEnabled) {
+            val (acceptedFilters, postScanFilters) = FilterPushdown.acceptFilters(filters)
+            this.acceptedFilters = acceptedFilters
+            postScanFilters // Return filters that need to be evaluated after scanning.
+        } else filters
+    }
 
-    override def pushedFilters(): Array[Filter] = ???
+    override def pushedFilters(): Array[Filter] = acceptedFilters
 
     private def inferSchema(): StructType = {
         val inferenceItems =

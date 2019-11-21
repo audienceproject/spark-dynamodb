@@ -36,6 +36,12 @@ class DefaultSource extends ReadSupport with WriteSupport with DataSourceRegiste
 
     private val logger = LoggerFactory.getLogger(this.getClass)
 
+    override def createReader(schema: StructType, options: DataSourceOptions): DataSourceReader = {
+        val optionsMap = options.asMap().asScala
+        val defaultParallelism = optionsMap.get("defaultparallelism").map(_.toInt).getOrElse(getDefaultParallelism)
+        new DynamoDataSourceReader(defaultParallelism, Map(optionsMap.toSeq: _*), Some(schema))
+    }
+
     override def createReader(options: DataSourceOptions): DataSourceReader = {
         val optionsMap = options.asMap().asScala
         val defaultParallelism = optionsMap.get("defaultparallelism").map(_.toInt).getOrElse(getDefaultParallelism)

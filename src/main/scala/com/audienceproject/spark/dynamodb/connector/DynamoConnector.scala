@@ -104,6 +104,8 @@ private[dynamodb] trait DynamoConnector {
 
     val totalSegments: Int
 
+    val filterPushdownEnabled: Boolean
+
     def scan(segmentNum: Int, columns: Seq[String], filters: Seq[Filter]): ItemCollection[ScanOutcome]
 
     def isEmpty: Boolean = itemLimit == 0

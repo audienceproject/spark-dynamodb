@@ -24,6 +24,7 @@ import com.amazonaws.services.dynamodbv2.document.Item
 import com.audienceproject.spark.dynamodb.connector.DynamoConnector
 import com.audienceproject.spark.dynamodb.util.RateLimiter
 import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.sources.v2.reader.{InputPartition, InputPartitionReader}
 import org.apache.spark.sql.types.{StructField, StructType}
 
@@ -31,7 +32,8 @@ import scala.collection.JavaConverters._
 
 class ScanPartition(schema: StructType,
                     partitionIndex: Int,
-                    connector: DynamoConnector)
+                    connector: DynamoConnector,
+                    filters: Array[Filter])
     extends InputPartition[InternalRow] {
 
     private val requiredColumns = schema.map(_.name)
@@ -56,7 +58,7 @@ class ScanPartition(schema: StructType,
 
     private class PartitionReader extends InputPartitionReader[InternalRow] {
 
-        private val pageIterator = connector.scan(partitionIndex, Seq.empty, Seq.empty).pages().iterator().asScala
+        private val pageIterator = connector.scan(partitionIndex, requiredColumns, filters).pages().iterator().asScala
         private val rateLimiter = new RateLimiter(connector.readLimit)
 
         private var innerIterator: Iterator[InternalRow] = Iterator.empty
