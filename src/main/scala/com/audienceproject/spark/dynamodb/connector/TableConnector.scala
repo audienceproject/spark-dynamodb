@@ -63,7 +63,7 @@ private[dynamodb] class TableConnector(tableName: String, parallelism: Int, para
 
         // Partitioning calculation.
         val numPartitions = parameters.get("readpartitions").map(_.toInt).getOrElse(
-            (tableSize / maxPartitionBytes).toInt
+            (tableSize / maxPartitionBytes).toInt max 1
         )
 
         // Provisioned or on-demand throughput.
@@ -133,11 +133,11 @@ private[dynamodb] class TableConnector(tableName: String, parallelism: Int, para
                 keySchema match {
                     case KeySchema(hashKey, None) =>
                         val hashKeyType = schema(hashKey).dataType
-                        item.withPrimaryKey(hashKey, row.get(hashKeyIndex, hashKeyType))
+                        item.withPrimaryKey(hashKey, JavaConverter.extractRowValue(row, hashKeyIndex, hashKeyType))
                     case KeySchema(hashKey, Some(rangeKey)) =>
-                        val hashKeyType = schema(hashKey).dataType
-                        val rangeKeyType = schema(rangeKey).dataType
-                        item.withPrimaryKey(hashKey, row.get(hashKeyIndex, hashKeyType), rangeKey, row.get(rangeKeyIndex.get, rangeKeyType))
+                        val hashKeyValue = JavaConverter.extractRowValue(row, hashKeyIndex, schema(hashKey).dataType)
+                        val rangeKeyValue = JavaConverter.extractRowValue(row, rangeKeyIndex.get, schema(rangeKey).dataType)
+                        item.withPrimaryKey(hashKey, hashKeyValue, rangeKey, rangeKeyValue)
                 }
 
                 // Map remaining columns.

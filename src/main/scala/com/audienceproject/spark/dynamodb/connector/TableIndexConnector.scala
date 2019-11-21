@@ -57,7 +57,7 @@ private[dynamodb] class TableIndexConnector(tableName: String, indexName: String
 
         // Partitioning calculation.
         val numPartitions = parameters.get("readpartitions").map(_.toInt).getOrElse(
-            (indexSize / maxPartitionBytes).toInt
+            (indexSize / maxPartitionBytes).toInt max 1
         )
 
         // Provisioned or on-demand throughput.

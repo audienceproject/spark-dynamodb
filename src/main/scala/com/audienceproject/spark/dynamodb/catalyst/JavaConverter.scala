@@ -15,7 +15,7 @@ object JavaConverter {
         elementType match {
             case ArrayType(innerType, _) => extractArray(row.getArray(index), innerType)
             case MapType(keyType, valueType, _) => extractMap(row.getMap(index), keyType, valueType)
-            case StructType(fields) => mapStruct(row.getStruct(index, fields.length), fields)
+            case StructType(fields) => extractStruct(row.getStruct(index, fields.length), fields)
             case StringType => row.getString(index)
             case _ => row.get(index, elementType)
         }
@@ -25,7 +25,7 @@ object JavaConverter {
         elementType match {
             case ArrayType(innerType, _) => array.toSeq[ArrayData](elementType).map(extractArray(_, innerType)).asJava
             case MapType(keyType, valueType, _) => array.toSeq[MapData](elementType).map(extractMap(_, keyType, valueType)).asJava
-            case structType: StructType => array.toSeq[InternalRow](structType).map(mapStruct(_, structType.fields)).asJava
+            case structType: StructType => array.toSeq[InternalRow](structType).map(extractStruct(_, structType.fields)).asJava
             case StringType => convertStringArray(array).asJava
             case _ => array.toSeq[Any](elementType).asJava
         }
@@ -38,7 +38,7 @@ object JavaConverter {
         val values = valueType match {
             case ArrayType(innerType, _) => map.valueArray().toSeq[ArrayData](valueType).map(extractArray(_, innerType))
             case MapType(innerKeyType, innerValueType, _) => map.valueArray().toSeq[MapData](valueType).map(extractMap(_, innerKeyType, innerValueType))
-            case structType: StructType => map.valueArray().toSeq[InternalRow](structType).map(mapStruct(_, structType.fields))
+            case structType: StructType => map.valueArray().toSeq[InternalRow](structType).map(extractStruct(_, structType.fields))
             case StringType => convertStringArray(map.valueArray())
             case _ => map.valueArray().toSeq[Any](valueType)
         }
@@ -46,12 +46,11 @@ object JavaConverter {
         Map(kvPairs: _*).asJava
     }
 
-    def mapStruct(row: InternalRow, fields: Seq[StructField]): util.Map[String, Any] = {
+    def extractStruct(row: InternalRow, fields: Seq[StructField]): util.Map[String, Any] = {
         val kvPairs = for (i <- 0 until row.numFields)
             yield fields(i).name -> extractRowValue(row, i, fields(i).dataType)
         Map(kvPairs: _*).asJava
     }
-
 
     def convertStringArray(array: ArrayData): Seq[String] =
         array.toSeq[UTF8String](StringType).map(_.toString)
