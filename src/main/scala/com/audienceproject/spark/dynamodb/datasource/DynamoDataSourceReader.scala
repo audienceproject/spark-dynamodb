@@ -16,61 +16,46 @@
   * specific language governing permissions and limitations
   * under the License.
   *
-  * Copyright © 2018 AudienceProject. All rights reserved.
+  * Copyright © 2019 AudienceProject. All rights reserved.
   */
-package com.audienceproject.spark.dynamodb.rdd
+package com.audienceproject.spark.dynamodb.datasource
+
+import java.util
 
 import com.audienceproject.spark.dynamodb.connector.{TableConnector, TableIndexConnector}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.sources._
+import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.sources.Filter
+import org.apache.spark.sql.sources.v2.reader._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{Row, SQLContext}
 
 import scala.collection.JavaConverters._
 
-private[dynamodb] class DynamoRelation(userSchema: StructType, parameters: Map[String, String])
-                                      (@transient val sqlContext: SQLContext)
-    extends BaseRelation with Serializable
-        with TableScan with PrunedScan with PrunedFilteredScan {
+class DynamoDataSourceReader(parallelism: Int, parameters: Map[String, String]) extends DataSourceReader
+    with SupportsPushDownRequiredColumns
+    with SupportsPushDownFilters {
 
-    private val tableName = parameters("tableName")
+    private val tableName = parameters("tablename")
     private val indexName = parameters.get("indexName")
-    private val numPartitions = parameters.get("readPartitions").map(_.toInt).getOrElse(sqlContext.sparkContext.defaultParallelism)
 
     private val dynamoConnector =
-        if (indexName.isDefined) new TableIndexConnector(tableName, indexName.get, numPartitions, parameters)
-        else new TableConnector(tableName, numPartitions, parameters)
+        if (indexName.isDefined) new TableIndexConnector(tableName, indexName.get, parallelism, parameters)
+        else new TableConnector(tableName, parallelism, parameters)
 
-    override val schema: StructType = Option(userSchema).getOrElse(inferSchema())
+    override lazy val readSchema: StructType = inferSchema()
 
-    override val sizeInBytes: Long = dynamoConnector.totalSizeInBytes
-
-    override def buildScan(): RDD[Row] = {
-        new DynamoRDD(sqlContext.sparkContext, schema, makePartitions(numPartitions))
-    }
-
-    override def buildScan(requiredColumns: Array[String]): RDD[Row] = {
-        new DynamoRDD(sqlContext.sparkContext, schema, makePartitions(numPartitions), requiredColumns)
-    }
-
-    override def buildScan(requiredColumns: Array[String], filters: Array[Filter]): RDD[Row] = {
-        new DynamoRDD(sqlContext.sparkContext, schema, makePartitions(numPartitions), requiredColumns, filters)
-    }
-
-    override def equals(other: Any): Boolean = {
-        other match {
-            case that: DynamoRelation =>
-                this.tableName == that.tableName &&
-                    this.indexName == that.indexName &&
-                    this.schema == that.schema &&
-                    this.sizeInBytes == that.sizeInBytes
-            case _ => false
+    override def planInputPartitions(): util.List[InputPartition[InternalRow]] = {
+        val inputPartitions = new util.ArrayList[InputPartition[InternalRow]]()
+        for (partitionIndex <- 0 until dynamoConnector.totalSegments) {
+            inputPartitions.add(new ScanPartition(readSchema, partitionIndex, dynamoConnector))
         }
+        inputPartitions
     }
 
-    private def makePartitions(numPartitions: Int): Seq[ScanPartition] = {
-        (0 until numPartitions).map(index => new ScanPartition(schema, index, dynamoConnector))
-    }
+    override def pruneColumns(requiredSchema: StructType): Unit = ???
+
+    override def pushFilters(filters: Array[Filter]): Array[Filter] = ???
+
+    override def pushedFilters(): Array[Filter] = ???
 
     private def inferSchema(): StructType = {
         val inferenceItems =

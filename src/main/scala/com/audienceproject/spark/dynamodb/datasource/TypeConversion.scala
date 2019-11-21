@@ -16,13 +16,14 @@
   * specific language governing permissions and limitations
   * under the License.
   *
-  * Copyright © 2018 AudienceProject. All rights reserved.
+  * Copyright © 2019 AudienceProject. All rights reserved.
   */
-package com.audienceproject.spark.dynamodb.rdd
+package com.audienceproject.spark.dynamodb.datasource
 
 import com.amazonaws.services.dynamodbv2.document.Item
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
+import org.apache.spark.unsafe.types.UTF8String
 
 import scala.collection.JavaConverters._
 
@@ -32,7 +33,7 @@ private[dynamodb] object TypeConversion {
 
         sparkType match {
             case BooleanType => nullableGet(_.getBOOL)(attrName)
-            case StringType => nullableGet(_.getString)(attrName)
+            case StringType => nullableGet(item => attrName => UTF8String.fromString(item.getString(attrName)))(attrName)
             case IntegerType => nullableGet(_.getInt)(attrName)
             case LongType => nullableGet(_.getLong)(attrName)
             case DoubleType => nullableGet(_.getDouble)(attrName)

@@ -16,17 +16,27 @@
   * specific language governing permissions and limitations
   * under the License.
   *
-  * Copyright © 2018 AudienceProject. All rights reserved.
+  * Copyright © 2019 AudienceProject. All rights reserved.
   */
-package com.audienceproject.spark.dynamodb.connector
+package com.audienceproject.spark.dynamodb.util
 
-import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.types.StructType
+// NOT THREAD SAFE
+class RateLimiter(capacity: Double) {
 
-trait DynamoWritable {
+    private var pressure = 0d
+    private var lastEvent = System.currentTimeMillis()
 
-    val writeLimit: Double
+    def acquire(amount: Double): Unit = {
+        pressure = (pressure - decay()) max 0
+        pressure += amount
+        lastEvent = System.currentTimeMillis()
+        if (pressure > capacity) {
+            Thread.sleep(delay().toLong)
+        }
+    }
 
-    def putItems(schema: StructType, items: Seq[InternalRow]): Unit
+    private def decay(): Double = (System.currentTimeMillis() - lastEvent) / 1000 * capacity
+
+    private def delay(): Double = (pressure - capacity) / capacity * 1000
 
 }
