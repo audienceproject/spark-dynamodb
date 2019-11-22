@@ -2,11 +2,13 @@ organization := "com.audienceproject"
 
 name := "spark-dynamodb"
 
-version := "0.5.0"
+version := "1.0.0"
 
 description := "Plug-and-play implementation of an Apache Spark custom data source for AWS DynamoDB."
 
 scalaVersion := "2.11.12"
+
+crossScalaVersions := Seq("2.11.12", "2.12.7")
 
 resolvers += "DynamoDBLocal" at "https://s3-us-west-2.amazonaws.com/dynamodb-local/release"
 

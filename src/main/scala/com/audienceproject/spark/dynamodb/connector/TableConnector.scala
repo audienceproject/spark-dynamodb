@@ -60,9 +60,12 @@ private[dynamodb] class TableConnector(tableName: String, parallelism: Int, para
         val itemCount = desc.getItemCount
 
         // Partitioning calculation.
-        val numPartitions = parameters.get("readpartitions").map(_.toInt).getOrElse(
-            (tableSize / maxPartitionBytes).toInt max 1
-        )
+        val numPartitions = parameters.get("readpartitions").map(_.toInt).getOrElse({
+            val sizeBased = (tableSize / maxPartitionBytes).toInt max 1
+            val remainder = sizeBased % parallelism
+            if (remainder > 0) sizeBased + (parallelism - remainder)
+            else sizeBased
+        })
 
         // Provisioned or on-demand throughput.
         val readThroughput = parameters.getOrElse("throughput", Option(desc.getProvisionedThroughput.getReadCapacityUnits)

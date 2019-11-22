@@ -26,6 +26,7 @@ import com.audienceproject.spark.dynamodb.connector.{FilterPushdown, TableConnec
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.sources.v2.reader._
+import org.apache.spark.sql.sources.v2.reader.partitioning.Partitioning
 import org.apache.spark.sql.types._
 
 import scala.collection.JavaConverters._
@@ -35,7 +36,8 @@ class DynamoDataSourceReader(parallelism: Int,
                              userSchema: Option[StructType] = None)
     extends DataSourceReader
         with SupportsPushDownRequiredColumns
-        with SupportsPushDownFilters {
+        with SupportsPushDownFilters
+        with SupportsReportPartitioning {
 
     private val tableName = parameters("tablename")
     private val indexName = parameters.get("indexName")
@@ -46,6 +48,8 @@ class DynamoDataSourceReader(parallelism: Int,
 
     private var acceptedFilters: Array[Filter] = Array.empty
     private var currentSchema: StructType = _
+
+    override val outputPartitioning: Partitioning = new OutputPartitioning(dynamoConnector.totalSegments)
 
     override def readSchema(): StructType = {
         if (currentSchema == null)
