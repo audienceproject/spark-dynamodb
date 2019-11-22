@@ -29,12 +29,10 @@ class DynamoDataSourceWriter(parallelism: Int, parameters: Map[String, String], 
     extends DataSourceWriter {
 
     private val tableName = parameters("tablename")
-    private val batchSize = parameters.getOrElse("writebatchsize", "25").toInt
-
     private val dynamoConnector = new TableConnector(tableName, parallelism, parameters)
 
     override def createWriterFactory(): DataWriterFactory[InternalRow] =
-        new DynamoWriterFactory(batchSize, dynamoConnector, schema)
+        new DynamoWriterFactory(dynamoConnector, parameters, schema)
 
     override def commit(messages: Array[WriterCommitMessage]): Unit = {}
 

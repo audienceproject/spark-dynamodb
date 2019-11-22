@@ -49,6 +49,9 @@ class DefaultSource extends ReadSupport with WriteSupport with DataSourceRegiste
     }
 
     override def createWriter(writeUUID: String, schema: StructType, mode: SaveMode, options: DataSourceOptions): Optional[DataSourceWriter] = {
+        if (mode == SaveMode.Append || mode == SaveMode.Overwrite)
+            throw new IllegalArgumentException(s"DynamoDB data source does not support save modes ($mode)." +
+                " Please use option 'update' (true | false) to differentiate between append/overwrite and append/update behavior.")
         val optionsMap = options.asMap().asScala
         val defaultParallelism = optionsMap.get("defaultparallelism").map(_.toInt).getOrElse(getDefaultParallelism)
         val writer = new DynamoDataSourceWriter(defaultParallelism, Map(optionsMap.toSeq: _*), schema)

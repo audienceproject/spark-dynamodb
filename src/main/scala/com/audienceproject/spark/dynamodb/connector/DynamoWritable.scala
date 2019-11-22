@@ -20,13 +20,18 @@
   */
 package com.audienceproject.spark.dynamodb.connector
 
+import com.amazonaws.services.dynamodbv2.document.DynamoDB
+import com.audienceproject.spark.dynamodb.util.RateLimiter
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.types.StructType
 
-trait DynamoWritable {
+private[dynamodb] trait DynamoWritable {
 
     val writeLimit: Double
 
-    def putItems(schema: StructType, items: Seq[InternalRow]): Unit
+    def putItems(columnSchema: ColumnSchema, items: Seq[InternalRow])
+                (client: DynamoDB, rateLimiter: RateLimiter): Unit
+
+    def updateItem(columnSchema: ColumnSchema, item: InternalRow)
+                  (client: DynamoDB, rateLimiter: RateLimiter): Unit
 
 }

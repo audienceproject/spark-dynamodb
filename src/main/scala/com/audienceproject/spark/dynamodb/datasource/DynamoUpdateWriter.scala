@@ -26,34 +26,19 @@ import com.audienceproject.spark.dynamodb.util.RateLimiter
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.sources.v2.writer.{DataWriter, WriterCommitMessage}
 
-import scala.collection.mutable.ArrayBuffer
-
-class DynamoBatchWriter(batchSize: Int,
-                        columnSchema: ColumnSchema,
-                        connector: TableConnector,
-                        client: DynamoDB)
+class DynamoUpdateWriter(columnSchema: ColumnSchema,
+                         connector: TableConnector,
+                         client: DynamoDB)
     extends DataWriter[InternalRow] {
 
-    private val buffer = new ArrayBuffer[InternalRow](batchSize)
     private val rateLimiter = new RateLimiter(connector.writeLimit)
 
     override def write(record: InternalRow): Unit = {
-        buffer += record.copy()
-        if (buffer.size == batchSize) {
-            flush()
-        }
+        connector.updateItem(columnSchema, record)(client, rateLimiter)
     }
 
-    override def commit(): WriterCommitMessage = {
-        flush()
-        new WriterCommitMessage {}
-    }
+    override def commit(): WriterCommitMessage = new WriterCommitMessage {}
 
     override def abort(): Unit = {}
-
-    private def flush(): Unit = {
-        connector.putItems(columnSchema, buffer)(client, rateLimiter)
-        buffer.clear()
-    }
 
 }
