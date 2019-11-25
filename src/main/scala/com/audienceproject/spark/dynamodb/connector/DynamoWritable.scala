@@ -21,7 +21,7 @@
 package com.audienceproject.spark.dynamodb.connector
 
 import com.amazonaws.services.dynamodbv2.document.DynamoDB
-import com.audienceproject.spark.dynamodb.util.RateLimiter
+import com.audienceproject.com.google.common.util.concurrent.RateLimiter
 import org.apache.spark.sql.catalyst.InternalRow
 
 private[dynamodb] trait DynamoWritable {

@@ -10,6 +10,8 @@ scalaVersion := "2.11.12"
 
 crossScalaVersions := Seq("2.11.12", "2.12.7")
 
+compileOrder := CompileOrder.JavaThenScala
+
 resolvers += "DynamoDBLocal" at "https://s3-us-west-2.amazonaws.com/dynamodb-local/release"
 
 libraryDependencies += "com.amazonaws" % "aws-java-sdk-sts" % "1.11.678"

@@ -24,8 +24,8 @@ import com.amazonaws.services.dynamodbv2.document._
 import com.amazonaws.services.dynamodbv2.document.spec.{BatchWriteItemSpec, ScanSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.model.ReturnConsumedCapacity
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
+import com.audienceproject.com.google.common.util.concurrent.RateLimiter
 import com.audienceproject.spark.dynamodb.catalyst.JavaConverter
-import com.audienceproject.spark.dynamodb.util.RateLimiter
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.sources.Filter
 
@@ -168,7 +168,7 @@ private[dynamodb] class TableConnector(tableName: String, parallelism: Int, para
         // Update item and rate limit on write capacity.
         val response = client.getTable(tableName).updateItem(updateItemSpec)
         Option(response.getUpdateItemResult.getConsumedCapacity)
-            .foreach(cap => rateLimiter.acquire(cap.getCapacityUnits))
+            .foreach(cap => rateLimiter.acquire(cap.getCapacityUnits.toInt))
     }
 
     @tailrec

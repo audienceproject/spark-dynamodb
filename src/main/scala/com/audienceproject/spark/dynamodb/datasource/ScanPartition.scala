@@ -21,8 +21,8 @@
 package com.audienceproject.spark.dynamodb.datasource
 
 import com.amazonaws.services.dynamodbv2.document.Item
+import com.audienceproject.com.google.common.util.concurrent.RateLimiter
 import com.audienceproject.spark.dynamodb.connector.DynamoConnector
-import com.audienceproject.spark.dynamodb.util.RateLimiter
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.sources.v2.reader.{InputPartition, InputPartitionReader}
@@ -59,7 +59,7 @@ class ScanPartition(schema: StructType,
     private class PartitionReader extends InputPartitionReader[InternalRow] {
 
         private val pageIterator = connector.scan(partitionIndex, requiredColumns, filters).pages().iterator().asScala
-        private val rateLimiter = new RateLimiter(connector.readLimit)
+        private val rateLimiter = RateLimiter.create(connector.readLimit)
 
         private var innerIterator: Iterator[InternalRow] = Iterator.empty
 
@@ -90,7 +90,7 @@ class ScanPartition(schema: StructType,
         private def nextPage(): Unit = {
             val page = pageIterator.next()
             val result = page.getLowLevelResult
-            Option(result.getScanResult.getConsumedCapacity).foreach(cap => rateLimiter.acquire(cap.getCapacityUnits))
+            Option(result.getScanResult.getConsumedCapacity).foreach(cap => rateLimiter.acquire(cap.getCapacityUnits.toInt))
             innerIterator = result.getItems.iterator().asScala.map(itemToRow(requiredColumns))
         }
 
