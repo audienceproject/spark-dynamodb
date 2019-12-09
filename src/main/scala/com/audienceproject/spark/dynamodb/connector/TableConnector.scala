@@ -168,7 +168,7 @@ private[dynamodb] class TableConnector(tableName: String, parallelism: Int, para
         // Update item and rate limit on write capacity.
         val response = client.getTable(tableName).updateItem(updateItemSpec)
         Option(response.getUpdateItemResult.getConsumedCapacity)
-            .foreach(cap => rateLimiter.acquire(cap.getCapacityUnits.toInt))
+            .foreach(cap => rateLimiter.acquire(cap.getCapacityUnits.toInt max 1))
     }
 
     @tailrec
@@ -178,7 +178,7 @@ private[dynamodb] class TableConnector(tableName: String, parallelism: Int, para
         if (response.getBatchWriteItemResult.getConsumedCapacity != null) {
             response.getBatchWriteItemResult.getConsumedCapacity.asScala.map(cap => {
                 cap.getTableName -> cap.getCapacityUnits.toInt
-            }).toMap.get(tableName).foreach(units => rateLimiter.acquire(units))
+            }).toMap.get(tableName).foreach(units => rateLimiter.acquire(units max 1))
         }
         // Retry unprocessed items.
         if (response.getUnprocessedItems != null && !response.getUnprocessedItems.isEmpty) {

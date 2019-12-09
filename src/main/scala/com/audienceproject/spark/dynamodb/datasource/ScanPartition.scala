@@ -90,7 +90,7 @@ class ScanPartition(schema: StructType,
         private def nextPage(): Unit = {
             val page = pageIterator.next()
             val result = page.getLowLevelResult
-            Option(result.getScanResult.getConsumedCapacity).foreach(cap => rateLimiter.acquire(cap.getCapacityUnits.toInt))
+            Option(result.getScanResult.getConsumedCapacity).foreach(cap => rateLimiter.acquire(cap.getCapacityUnits.toInt max 1))
             innerIterator = result.getItems.iterator().asScala.map(itemToRow(requiredColumns))
         }
 

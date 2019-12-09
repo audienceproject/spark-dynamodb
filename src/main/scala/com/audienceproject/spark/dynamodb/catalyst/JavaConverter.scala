@@ -67,8 +67,9 @@ object JavaConverter {
     }
 
     def convertStruct(row: InternalRow, fields: Seq[StructField]): util.Map[String, Any] = {
-        val kvPairs = for (i <- 0 until row.numFields)
-            yield fields(i).name -> convertRowValue(row, i, fields(i).dataType)
+        val kvPairs = for (i <- 0 until row.numFields) yield
+            if (row.isNullAt(i)) fields(i).name -> null
+            else fields(i).name -> convertRowValue(row, i, fields(i).dataType)
         Map(kvPairs: _*).asJava
     }
 

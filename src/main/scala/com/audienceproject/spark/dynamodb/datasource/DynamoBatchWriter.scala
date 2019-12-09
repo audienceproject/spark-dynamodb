@@ -52,8 +52,10 @@ class DynamoBatchWriter(batchSize: Int,
     override def abort(): Unit = {}
 
     private def flush(): Unit = {
-        connector.putItems(columnSchema, buffer)(client, rateLimiter)
-        buffer.clear()
+        if (buffer.nonEmpty) {
+            connector.putItems(columnSchema, buffer)(client, rateLimiter)
+            buffer.clear()
+        }
     }
 
 }
