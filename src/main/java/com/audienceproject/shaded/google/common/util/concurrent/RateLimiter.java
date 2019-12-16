@@ -1,4 +1,4 @@
-package com.audienceproject.com.google.common.util.concurrent;
+package com.audienceproject.shaded.google.common.util.concurrent;
 
 /*
  * Notice:
@@ -21,8 +21,8 @@ package com.audienceproject.com.google.common.util.concurrent;
  * limitations under the License.
  */
 
-import com.audienceproject.com.google.common.base.Preconditions;
-import com.audienceproject.com.google.common.base.Ticker;
+import com.audienceproject.shaded.google.common.base.Preconditions;
+import com.audienceproject.shaded.google.common.base.Ticker;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.concurrent.TimeUnit;

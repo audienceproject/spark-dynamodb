@@ -21,7 +21,7 @@
 package com.audienceproject.spark.dynamodb.datasource
 
 import com.amazonaws.services.dynamodbv2.document.DynamoDB
-import com.audienceproject.com.google.common.util.concurrent.RateLimiter
+import com.audienceproject.shaded.google.common.util.concurrent.RateLimiter
 import com.audienceproject.spark.dynamodb.connector.{ColumnSchema, TableConnector}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.sources.v2.writer.{DataWriter, WriterCommitMessage}

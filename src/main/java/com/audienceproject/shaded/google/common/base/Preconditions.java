@@ -1,4 +1,4 @@
-package com.audienceproject.com.google.common.base;
+package com.audienceproject.shaded.google.common.base;
 
 /*
  * Notice:
