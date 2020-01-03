@@ -20,7 +20,7 @@
   */
 package com.audienceproject.spark.dynamodb.datasource
 
-import com.amazonaws.services.dynamodbv2.document.Item
+import com.amazonaws.services.dynamodbv2.document.{IncompatibleTypeException, Item}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.util.{ArrayBasedMapData, GenericArrayData}
 import org.apache.spark.sql.types._
@@ -87,6 +87,7 @@ private[dynamodb] object TypeConversion {
     private def nullableGet(getter: Item => String => Any)(attrName: String): Item => Any = {
         case item if item.hasAttribute(attrName) => try getter(item)(attrName) catch {
             case _: NumberFormatException => null
+            case _: IncompatibleTypeException => null
         }
         case _ => null
     }
