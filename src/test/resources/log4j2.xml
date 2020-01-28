@@ -12,6 +12,18 @@
         <Root level="INFO">
             <AppenderRef ref="console" />
         </Root>
+        <logger name="org.apache.spark" level="WARN">
+            <AppenderRef ref="simple-console"/>
+        </logger>
+        <logger name="org.spark_project.jetty" level="WARN">
+            <AppenderRef ref="simple-console"/>
+        </logger>
+        <logger name="com.amazonaws.services.dynamodbv2.local" level="WARN">
+            <AppenderRef ref="simple-console"/>
+        </logger>
+        <logger name="com.amazonaws.auth.profile.internal.BasicProfileConfigLoader" level="ERROR">
+            <AppenderRef ref="simple-console"/>
+        </logger>
         <Logger name="MessageOnly" level="INFO" additivity="false">
             <AppenderRef ref="simple-console"/>
         </Logger>

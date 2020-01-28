@@ -20,11 +20,15 @@
   */
 package com.audienceproject.spark.dynamodb
 
-import com.amazonaws.services.dynamodbv2.model.{AttributeDefinition, CreateTableRequest, KeySchemaElement, ProvisionedThroughput}
-import com.audienceproject.spark.dynamodb.implicits._
-import org.apache.spark.sql.functions.{length, lit, when}
+import java.util
 
-class WriteRelationTest extends AbstractInMemoryTest {
+import collection.JavaConverters._
+import com.amazonaws.services.dynamodbv2.model.{AttributeDefinition, CreateTableRequest, KeySchemaElement, KeyType, ProvisionedThroughput}
+import com.audienceproject.spark.dynamodb.implicits._
+import org.apache.spark.sql.functions.{lit, when, length => sqlLength}
+import org.scalatest.Matchers
+
+class WriteRelationTest extends AbstractInMemoryTest with Matchers {
 
     test("Inserting from a local Dataset") {
         dynamoDB.createTable(new CreateTableRequest()
@@ -52,6 +56,69 @@ class WriteRelationTest extends AbstractInMemoryTest {
         assert(validationDs.select("weight").as[Double].collect().forall(Seq(0.1, 0.2, 0.2) contains _))
     }
 
+    test("Deleting from a local Dataset with a HashKey only") {
+        val tablename = "DeleteTest1"
+        dynamoDB.createTable(new CreateTableRequest()
+            .withTableName(tablename)
+            .withAttributeDefinitions(new AttributeDefinition("name", "S"))
+            .withKeySchema(new KeySchemaElement("name", "HASH"))
+            .withProvisionedThroughput(new ProvisionedThroughput(5L, 5L)))
+
+        import spark.implicits._
+
+        val newItemsDs = Seq(
+            ("lemon", "yellow", 0.1),
+            ("orange", "orange", 0.2),
+            ("pomegranate", "red", 0.2)
+        ).toDF("name", "color", "weight")
+        newItemsDs.write.dynamodb(tablename)
+
+        val toDelete = newItemsDs.filter("name in ('lemon','orange')")
+        toDelete.write.option("delete", "true").dynamodb(tablename)
+
+        val validationDs = spark.read.dynamodb(tablename)
+        validationDs.count() shouldEqual 1
+        val rec = validationDs.first
+        rec.getString(rec.fieldIndex("name")) shouldEqual "pomegranate"
+        rec.getString(rec.fieldIndex("color")) shouldEqual "red"
+        rec.getDouble(rec.fieldIndex("weight")) shouldEqual 0.2
+    }
+
+    test("Deleting from a local Dataset with a HashKey and RangeKey") {
+        val tablename = "DeleteTest2"
+
+        dynamoDB.createTable(new CreateTableRequest()
+            .withTableName(tablename)
+            .withAttributeDefinitions(Seq(
+                new AttributeDefinition("name", "S"),
+                new AttributeDefinition("weight", "N")
+            ).asJavaCollection)
+            .withKeySchema(Seq(
+                new KeySchemaElement("name", KeyType.HASH),
+                // also test that non-string key works
+                new KeySchemaElement("weight", KeyType.RANGE)
+            ).asJavaCollection)
+            .withProvisionedThroughput(new ProvisionedThroughput(5L, 5L)))
+
+        import spark.implicits._
+
+        val newItemsDs = Seq(
+            ("lemon", "yellow", 0.1),
+            ("lemon", "blue", 4.0),
+            ("orange", "orange", 0.2),
+            ("pomegranate", "red", 0.2)
+        ).toDF("name", "color", "weight")
+        newItemsDs.write.dynamodb(tablename)
+
+        val toDelete = newItemsDs.filter("color in ('yellow','orange')")
+        toDelete.write.option("delete", "true").dynamodb(tablename)
+
+        val validationDs = spark.read.dynamodb(tablename)
+        validationDs.count() shouldEqual 2
+        validationDs.select("name").as[String].collect should contain theSameElementsAs Seq("lemon", "pomegranate")
+        validationDs.select("color").as[String].collect should contain theSameElementsAs Seq("blue", "red")
+    }
+
     test("Updating from a local Dataset with new and only some previous columns") {
         val tablename = "UpdateTest1"
         dynamoDB.createTable(new CreateTableRequest()
@@ -70,13 +137,12 @@ class WriteRelationTest extends AbstractInMemoryTest {
         newItemsDs.write.dynamodb(tablename)
 
         newItemsDs
-            .withColumn("size", length($"color"))
+            .withColumn("size", sqlLength($"color"))
             .drop("color")
             .withColumn("weight", $"weight" * 2)
             .write.option("update", "true").dynamodb(tablename)
 
         val validationDs = spark.read.dynamodb(tablename)
-        validationDs.show
         assert(validationDs.count() === 3)
         assert(validationDs.select("name").as[String].collect().forall(Seq("lemon", "orange", "pomegranate") contains _))
         assert(validationDs.select("color").as[String].collect().forall(Seq("yellow", "orange", "red") contains _))
@@ -103,11 +169,9 @@ class WriteRelationTest extends AbstractInMemoryTest {
 
         val alteredDs = newItemsDs
             .withColumn("weight", when($"weight" < 0.2, $"weight").otherwise(lit(null)))
-        alteredDs.show
         alteredDs.write.option("update", "true").dynamodb(tablename)
 
         val validationDs = spark.read.dynamodb(tablename)
-        validationDs.show
         assert(validationDs.count() === 3)
         assert(validationDs.select("name").as[String].collect().forall(Seq("lemon", "orange", "pomegranate") contains _))
         assert(validationDs.select("color").as[String].collect().forall(Seq("yellow", "orange", "red") contains _))

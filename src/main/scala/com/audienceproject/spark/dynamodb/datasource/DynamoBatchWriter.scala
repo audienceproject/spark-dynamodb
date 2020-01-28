@@ -31,7 +31,9 @@ import scala.collection.mutable.ArrayBuffer
 class DynamoBatchWriter(batchSize: Int,
                         columnSchema: ColumnSchema,
                         connector: TableConnector,
-                        client: DynamoDB)
+                        client: DynamoDB,
+                        delete: Boolean
+                       )
     extends DataWriter[InternalRow] {
 
     private val buffer = new ArrayBuffer[InternalRow](batchSize)
@@ -53,7 +55,7 @@ class DynamoBatchWriter(batchSize: Int,
 
     private def flush(): Unit = {
         if (buffer.nonEmpty) {
-            connector.putItems(columnSchema, buffer)(client, rateLimiter)
+            connector.putItems(columnSchema, buffer)(client, rateLimiter, delete)
             buffer.clear()
         }
     }
