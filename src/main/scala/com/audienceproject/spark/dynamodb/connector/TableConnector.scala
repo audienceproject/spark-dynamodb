@@ -110,56 +110,34 @@ private[dynamodb] class TableConnector(tableName: String, parallelism: Int, para
     }
 
     override def putItems(columnSchema: ColumnSchema, items: Seq[InternalRow])
-                         (client: DynamoDB, rateLimiter: RateLimiter, delete: Boolean): Unit = {
+                         (client: DynamoDB, rateLimiter: RateLimiter): Unit = {
         // For each batch.
         val batchWriteItemSpec = new BatchWriteItemSpec().withReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
+        batchWriteItemSpec.withTableWriteItems(new TableWriteItems(tableName).withItemsToPut(
+            // Map the items.
+            items.map(row => {
+                val item = new Item()
 
-        val tableWriteItems = new TableWriteItems(tableName)
-        val tableWriteItemsWithItems: TableWriteItems = if (delete) {
-            // check if hash key only or also range key
-            columnSchema.keys() match {
-                case Left((hashKey, hashKeyIndex, hashKeyType)) =>
-                    val hashKeys = items.map(row =>
-                        JavaConverter.convertRowValue(row, hashKeyIndex, hashKeyType).asInstanceOf[AnyRef])
-                    tableWriteItems.withHashOnlyKeysToDelete(hashKey, hashKeys: _*)
-
-                case Right(((hashKey, hashKeyIndex, hashKeyType), (rangeKey, rangeKeyIndex, rangeKeyType))) =>
-                    val alternatingHashAndRangeKeys = items.flatMap { case row =>
+                // Map primary key.
+                columnSchema.keys() match {
+                    case Left((hashKey, hashKeyIndex, hashKeyType)) =>
+                        item.withPrimaryKey(hashKey, JavaConverter.convertRowValue(row, hashKeyIndex, hashKeyType))
+                    case Right(((hashKey, hashKeyIndex, hashKeyType), (rangeKey, rangeKeyIndex, rangeKeyType))) =>
                         val hashKeyValue = JavaConverter.convertRowValue(row, hashKeyIndex, hashKeyType)
                         val rangeKeyValue = JavaConverter.convertRowValue(row, rangeKeyIndex, rangeKeyType)
-                        Seq(hashKeyValue.asInstanceOf[AnyRef], rangeKeyValue.asInstanceOf[AnyRef])
-                    }
-                    tableWriteItems.withHashAndRangeKeysToDelete(hashKey, rangeKey, alternatingHashAndRangeKeys: _*)
-            }
-        } else {
-            // Map the items.
-            tableWriteItems.withItemsToPut(
-                items.map(row => {
-                    val item = new Item()
+                        item.withPrimaryKey(hashKey, hashKeyValue, rangeKey, rangeKeyValue)
+                }
 
-                    // Map primary key.
-                    columnSchema.keys() match {
-                        case Left((hashKey, hashKeyIndex, hashKeyType)) =>
-                            item.withPrimaryKey(hashKey, JavaConverter.convertRowValue(row, hashKeyIndex, hashKeyType))
-                        case Right(((hashKey, hashKeyIndex, hashKeyType), (rangeKey, rangeKeyIndex, rangeKeyType))) =>
-                            val hashKeyValue = JavaConverter.convertRowValue(row, hashKeyIndex, hashKeyType)
-                            val rangeKeyValue = JavaConverter.convertRowValue(row, rangeKeyIndex, rangeKeyType)
-                            item.withPrimaryKey(hashKey, hashKeyValue, rangeKey, rangeKeyValue)
-                    }
+                // Map remaining columns.
+                columnSchema.attributes().foreach({
+                    case (name, index, dataType) if !row.isNullAt(index) =>
+                        item.`with`(name, JavaConverter.convertRowValue(row, index, dataType))
+                    case _ =>
+                })
 
-                    // Map remaining columns.
-                    columnSchema.attributes().foreach({
-                        case (name, index, dataType) if !row.isNullAt(index) =>
-                            item.`with`(name, JavaConverter.convertRowValue(row, index, dataType))
-                        case _ =>
-                    })
-
-                    item
-                }): _*
-            )
-        }
-
-        batchWriteItemSpec.withTableWriteItems(tableWriteItemsWithItems)
+                item
+            }): _*
+        ))
 
         val response = client.batchWriteItem(batchWriteItemSpec)
         handleBatchWriteResponse(client, rateLimiter)(response)
@@ -191,6 +169,35 @@ private[dynamodb] class TableConnector(tableName: String, parallelism: Int, para
         val response = client.getTable(tableName).updateItem(updateItemSpec)
         Option(response.getUpdateItemResult.getConsumedCapacity)
             .foreach(cap => rateLimiter.acquire(cap.getCapacityUnits.toInt max 1))
+    }
+
+    override def deleteItems(columnSchema: ColumnSchema, items: Seq[InternalRow])
+                            (client: DynamoDB, rateLimiter: RateLimiter): Unit = {
+        // For each batch.
+        val batchWriteItemSpec = new BatchWriteItemSpec().withReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
+
+        val tableWriteItems = new TableWriteItems(tableName)
+        val tableWriteItemsWithItems: TableWriteItems =
+            // check if hash key only or also range key
+            columnSchema.keys() match {
+                case Left((hashKey, hashKeyIndex, hashKeyType)) =>
+                    val hashKeys = items.map(row =>
+                        JavaConverter.convertRowValue(row, hashKeyIndex, hashKeyType).asInstanceOf[AnyRef])
+                    tableWriteItems.withHashOnlyKeysToDelete(hashKey, hashKeys: _*)
+
+                case Right(((hashKey, hashKeyIndex, hashKeyType), (rangeKey, rangeKeyIndex, rangeKeyType))) =>
+                    val alternatingHashAndRangeKeys = items.flatMap { case row =>
+                        val hashKeyValue = JavaConverter.convertRowValue(row, hashKeyIndex, hashKeyType)
+                        val rangeKeyValue = JavaConverter.convertRowValue(row, rangeKeyIndex, rangeKeyType)
+                        Seq(hashKeyValue.asInstanceOf[AnyRef], rangeKeyValue.asInstanceOf[AnyRef])
+                    }
+                    tableWriteItems.withHashAndRangeKeysToDelete(hashKey, rangeKey, alternatingHashAndRangeKeys: _*)
+            }
+
+        batchWriteItemSpec.withTableWriteItems(tableWriteItemsWithItems)
+
+        val response = client.batchWriteItem(batchWriteItemSpec)
+        handleBatchWriteResponse(client, rateLimiter)(response)
     }
 
     @tailrec

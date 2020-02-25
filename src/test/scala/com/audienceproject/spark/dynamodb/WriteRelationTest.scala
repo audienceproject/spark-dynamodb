@@ -73,7 +73,11 @@ class WriteRelationTest extends AbstractInMemoryTest with Matchers {
         ).toDF("name", "color", "weight")
         newItemsDs.write.dynamodb(tablename)
 
-        val toDelete = newItemsDs.filter("name in ('lemon','orange')")
+        val toDelete = Seq(
+            ("lemon", "yellow"),
+            ("orange", "blue"),
+            ("doesn't exist", "black")
+        ).toDF("name", "color")
         toDelete.write.option("delete", "true").dynamodb(tablename)
 
         val validationDs = spark.read.dynamodb(tablename)
@@ -110,10 +114,15 @@ class WriteRelationTest extends AbstractInMemoryTest with Matchers {
         ).toDF("name", "color", "weight")
         newItemsDs.write.dynamodb(tablename)
 
-        val toDelete = newItemsDs.filter("color in ('yellow','orange')")
+        val toDelete = Seq(
+            ("lemon", "yellow", 0.1),
+            ("orange", "orange", 0.2),
+            ("pomegranate", "shouldn'tdelete", 0.5)
+        ).toDF("name", "color", "weight")
         toDelete.write.option("delete", "true").dynamodb(tablename)
 
         val validationDs = spark.read.dynamodb(tablename)
+        validationDs.show
         validationDs.count() shouldEqual 2
         validationDs.select("name").as[String].collect should contain theSameElementsAs Seq("lemon", "pomegranate")
         validationDs.select("color").as[String].collect should contain theSameElementsAs Seq("blue", "red")
@@ -143,6 +152,7 @@ class WriteRelationTest extends AbstractInMemoryTest with Matchers {
             .write.option("update", "true").dynamodb(tablename)
 
         val validationDs = spark.read.dynamodb(tablename)
+        validationDs.show
         assert(validationDs.count() === 3)
         assert(validationDs.select("name").as[String].collect().forall(Seq("lemon", "orange", "pomegranate") contains _))
         assert(validationDs.select("color").as[String].collect().forall(Seq("yellow", "orange", "red") contains _))
@@ -169,9 +179,11 @@ class WriteRelationTest extends AbstractInMemoryTest with Matchers {
 
         val alteredDs = newItemsDs
             .withColumn("weight", when($"weight" < 0.2, $"weight").otherwise(lit(null)))
+        alteredDs.show
         alteredDs.write.option("update", "true").dynamodb(tablename)
 
         val validationDs = spark.read.dynamodb(tablename)
+        validationDs.show
         assert(validationDs.count() === 3)
         assert(validationDs.select("name").as[String].collect().forall(Seq("lemon", "orange", "pomegranate") contains _))
         assert(validationDs.select("color").as[String].collect().forall(Seq("yellow", "orange", "red") contains _))

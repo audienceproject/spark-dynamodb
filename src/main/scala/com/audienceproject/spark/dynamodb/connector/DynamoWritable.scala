@@ -29,9 +29,12 @@ private[dynamodb] trait DynamoWritable {
     val writeLimit: Double
 
     def putItems(columnSchema: ColumnSchema, items: Seq[InternalRow])
-                (client: DynamoDB, rateLimiter: RateLimiter, delete: Boolean): Unit
+                (client: DynamoDB, rateLimiter: RateLimiter): Unit
 
     def updateItem(columnSchema: ColumnSchema, item: InternalRow)
                   (client: DynamoDB, rateLimiter: RateLimiter): Unit
+
+    def deleteItems(columnSchema: ColumnSchema, itema: Seq[InternalRow])
+                   (client: DynamoDB, rateLimiter: RateLimiter): Unit
 
 }
