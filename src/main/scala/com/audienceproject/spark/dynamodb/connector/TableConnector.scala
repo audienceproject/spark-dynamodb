@@ -171,6 +171,35 @@ private[dynamodb] class TableConnector(tableName: String, parallelism: Int, para
             .foreach(cap => rateLimiter.acquire(cap.getCapacityUnits.toInt max 1))
     }
 
+    override def deleteItems(columnSchema: ColumnSchema, items: Seq[InternalRow])
+                            (client: DynamoDB, rateLimiter: RateLimiter): Unit = {
+        // For each batch.
+        val batchWriteItemSpec = new BatchWriteItemSpec().withReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
+
+        val tableWriteItems = new TableWriteItems(tableName)
+        val tableWriteItemsWithItems: TableWriteItems =
+            // check if hash key only or also range key
+            columnSchema.keys() match {
+                case Left((hashKey, hashKeyIndex, hashKeyType)) =>
+                    val hashKeys = items.map(row =>
+                        JavaConverter.convertRowValue(row, hashKeyIndex, hashKeyType).asInstanceOf[AnyRef])
+                    tableWriteItems.withHashOnlyKeysToDelete(hashKey, hashKeys: _*)
+
+                case Right(((hashKey, hashKeyIndex, hashKeyType), (rangeKey, rangeKeyIndex, rangeKeyType))) =>
+                    val alternatingHashAndRangeKeys = items.flatMap { case row =>
+                        val hashKeyValue = JavaConverter.convertRowValue(row, hashKeyIndex, hashKeyType)
+                        val rangeKeyValue = JavaConverter.convertRowValue(row, rangeKeyIndex, rangeKeyType)
+                        Seq(hashKeyValue.asInstanceOf[AnyRef], rangeKeyValue.asInstanceOf[AnyRef])
+                    }
+                    tableWriteItems.withHashAndRangeKeysToDelete(hashKey, rangeKey, alternatingHashAndRangeKeys: _*)
+            }
+
+        batchWriteItemSpec.withTableWriteItems(tableWriteItemsWithItems)
+
+        val response = client.batchWriteItem(batchWriteItemSpec)
+        handleBatchWriteResponse(client, rateLimiter)(response)
+    }
+
     @tailrec
     private def handleBatchWriteResponse(client: DynamoDB, rateLimiter: RateLimiter)
                                         (response: BatchWriteItemOutcome): Unit = {

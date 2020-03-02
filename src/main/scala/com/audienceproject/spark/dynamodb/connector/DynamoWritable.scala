@@ -34,4 +34,7 @@ private[dynamodb] trait DynamoWritable {
     def updateItem(columnSchema: ColumnSchema, item: InternalRow)
                   (client: DynamoDB, rateLimiter: RateLimiter): Unit
 
+    def deleteItems(columnSchema: ColumnSchema, itema: Seq[InternalRow])
+                   (client: DynamoDB, rateLimiter: RateLimiter): Unit
+
 }

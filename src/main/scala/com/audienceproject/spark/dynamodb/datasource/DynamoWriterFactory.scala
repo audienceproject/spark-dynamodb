@@ -32,6 +32,7 @@ class DynamoWriterFactory(connector: TableConnector,
 
     private val batchSize = parameters.getOrElse("writebatchsize", "25").toInt
     private val update = parameters.getOrElse("update", "false").toBoolean
+    private val delete = parameters.getOrElse("delete", "false").toBoolean
 
     private val region = parameters.get("region")
     private val roleArn = parameters.get("rolearn")
@@ -39,8 +40,13 @@ class DynamoWriterFactory(connector: TableConnector,
     override def createDataWriter(partitionId: Int, taskId: Long, epochId: Long): DataWriter[InternalRow] = {
         val columnSchema = new ColumnSchema(connector.keySchema, schema)
         val client = connector.getDynamoDB(region, roleArn)
-        if (update)
+        if (update) {
+            assert(!delete, "Please provide exactly one of 'update' or 'delete' options.")
             new DynamoUpdateWriter(columnSchema, connector, client)
+        }
+        else if (delete) {
+            new DynamoBatchDeleter(batchSize, columnSchema, connector, client)
+        }
         else
             new DynamoBatchWriter(batchSize, columnSchema, connector, client)
     }
