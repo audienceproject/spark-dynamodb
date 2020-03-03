@@ -43,12 +43,11 @@ class DynamoWriterFactory(connector: TableConnector,
         if (update) {
             assert(!delete, "Please provide exactly one of 'update' or 'delete' options.")
             new DynamoUpdateWriter(columnSchema, connector, client)
-        }
-        else if (delete) {
-            new DynamoBatchDeleter(batchSize, columnSchema, connector, client)
-        }
-        else
+        } else if (delete) {
+            new DynamoBatchDeleteWriter(batchSize, columnSchema, connector, client)
+        } else {
             new DynamoBatchWriter(batchSize, columnSchema, connector, client)
+        }
     }
 
 }

@@ -178,15 +178,14 @@ private[dynamodb] class TableConnector(tableName: String, parallelism: Int, para
 
         val tableWriteItems = new TableWriteItems(tableName)
         val tableWriteItemsWithItems: TableWriteItems =
-            // check if hash key only or also range key
+        // Check if hash key only or also range key.
             columnSchema.keys() match {
                 case Left((hashKey, hashKeyIndex, hashKeyType)) =>
                     val hashKeys = items.map(row =>
                         JavaConverter.convertRowValue(row, hashKeyIndex, hashKeyType).asInstanceOf[AnyRef])
                     tableWriteItems.withHashOnlyKeysToDelete(hashKey, hashKeys: _*)
-
                 case Right(((hashKey, hashKeyIndex, hashKeyType), (rangeKey, rangeKeyIndex, rangeKeyType))) =>
-                    val alternatingHashAndRangeKeys = items.flatMap { case row =>
+                    val alternatingHashAndRangeKeys = items.flatMap { row =>
                         val hashKeyValue = JavaConverter.convertRowValue(row, hashKeyIndex, hashKeyType)
                         val rangeKeyValue = JavaConverter.convertRowValue(row, rangeKeyIndex, rangeKeyType)
                         Seq(hashKeyValue.asInstanceOf[AnyRef], rangeKeyValue.asInstanceOf[AnyRef])
