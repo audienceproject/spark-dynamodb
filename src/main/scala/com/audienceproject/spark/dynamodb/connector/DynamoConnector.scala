@@ -82,6 +82,7 @@ private[dynamodb] trait DynamoConnector {
                     .withEndpointConfiguration(new EndpointConfiguration(endpoint, chosenRegion))
                     .build()
             }).getOrElse(
+                // STS without an endpoint will sign from the region, but use the global endpoint
                 AWSSecurityTokenServiceClientBuilder
                     .standard()
                     .withCredentials(new DefaultAWSCredentialsProviderChain)
