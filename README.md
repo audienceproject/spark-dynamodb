@@ -99,6 +99,14 @@ The following parameters can be set as options on the Spark writer object before
 - `update` if true items will be written using UpdateItem on keys rather than BatchWriteItem. Default false.
 - `throughput` the desired write throughput to use. It overwrites any calculation used by the package. It is intended to be used with tables that are on-demand. Defaults to 100 for on-demand.
 
+## System Properties
+The following Java system properties are available for configuration.
+
+- `aws.profile` IAM profile to use for default credentials provider.
+- `aws.dynamodb.region` region in which to access the AWS APIs.
+- `aws.dynamodb.endpoint` endpoint to use for accessing the DynamoDB API.
+- `aws.sts.endpoint` endpoint to use for accessing the STS API when assuming the role indicated by the `roleArn` parameter.
+
 ## Running Unit Tests
 The unit tests are dependent on the AWS DynamoDBLocal client, which in turn is dependent on [sqlite4java](https://bitbucket.org/almworks/sqlite4java/src/master/). I had some problems running this on OSX, so I had to put the library directly in the /lib folder, as graciously explained in [this Stack Overflow answer](https://stackoverflow.com/questions/34137043/amazon-dynamodb-local-unknown-error-exception-or-failure/35353377#35353377).
 

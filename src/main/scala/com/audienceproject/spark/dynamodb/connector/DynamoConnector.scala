@@ -31,16 +31,18 @@ import org.apache.spark.sql.sources.Filter
 
 private[dynamodb] trait DynamoConnector {
 
+    @transient private lazy val properties = sys.props
+
     def getDynamoDB(region: Option[String] = None, roleArn: Option[String] = None): DynamoDB = {
         val client: AmazonDynamoDB = getDynamoDBClient(region, roleArn)
         new DynamoDB(client)
     }
 
     private def getDynamoDBClient(region: Option[String] = None, roleArn: Option[String] = None): AmazonDynamoDB = {
-        val chosenRegion = region.getOrElse(sys.env.getOrElse("aws.dynamodb.region", "us-east-1"))
+        val chosenRegion = region.getOrElse(properties.getOrElse("aws.dynamodb.region", "us-east-1"))
         val credentials = getCredentials(chosenRegion, roleArn)
 
-        Option(System.getProperty("aws.dynamodb.endpoint")).map(endpoint => {
+        properties.get("aws.dynamodb.endpoint").map(endpoint => {
             AmazonDynamoDBClientBuilder.standard()
                 .withCredentials(credentials)
                 .withEndpointConfiguration(new EndpointConfiguration(endpoint, chosenRegion))
@@ -54,10 +56,10 @@ private[dynamodb] trait DynamoConnector {
     }
 
     def getDynamoDBAsyncClient(region: Option[String] = None, roleArn: Option[String] = None): AmazonDynamoDBAsync = {
-        val chosenRegion = region.getOrElse(sys.env.getOrElse("aws.dynamodb.region", "us-east-1"))
+        val chosenRegion = region.getOrElse(properties.getOrElse("aws.dynamodb.region", "us-east-1"))
         val credentials = getCredentials(chosenRegion, roleArn)
 
-        Option(System.getProperty("aws.dynamodb.endpoint")).map(endpoint => {
+        properties.get("aws.dynamodb.endpoint").map(endpoint => {
             AmazonDynamoDBAsyncClientBuilder.standard()
                 .withCredentials(credentials)
                 .withEndpointConfiguration(new EndpointConfiguration(endpoint, chosenRegion))
@@ -75,7 +77,7 @@ private[dynamodb] trait DynamoConnector {
       **/
     private def getCredentials(chosenRegion: String, roleArn: Option[String]) = {
         roleArn.map(arn => {
-            val stsClient = Option(System.getProperty("aws.sts.endpoint")).map(endpoint => {
+            val stsClient = properties.get("aws.sts.endpoint").map(endpoint => {
                 AWSSecurityTokenServiceClientBuilder
                     .standard()
                     .withCredentials(new DefaultAWSCredentialsProviderChain)
@@ -101,7 +103,7 @@ private[dynamodb] trait DynamoConnector {
                 stsCredentials.getSessionToken
             )
             new AWSStaticCredentialsProvider(assumeCreds)
-        }).orElse(Option(System.getProperty("aws.profile")).map(new ProfileCredentialsProvider(_)))
+        }).orElse(properties.get("aws.profile").map(new ProfileCredentialsProvider(_)))
             .getOrElse(new DefaultAWSCredentialsProviderChain)
     }
 
