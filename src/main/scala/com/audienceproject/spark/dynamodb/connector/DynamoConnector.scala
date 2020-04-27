@@ -75,11 +75,20 @@ private[dynamodb] trait DynamoConnector {
       **/
     private def getCredentials(chosenRegion: String, roleArn: Option[String]) = {
         roleArn.map(arn => {
-            val stsClient = AWSSecurityTokenServiceClientBuilder
-                .standard()
-                .withCredentials(new DefaultAWSCredentialsProviderChain)
-                .withRegion(chosenRegion)
-                .build()
+            val stsClient = Option(System.getProperty("aws.sts.endpoint")).map(endpoint => {
+                AWSSecurityTokenServiceClientBuilder
+                    .standard()
+                    .withCredentials(new DefaultAWSCredentialsProviderChain)
+                    .withEndpointConfiguration(new EndpointConfiguration(endpoint, chosenRegion))
+                    .build()
+            }).getOrElse(
+                // STS without an endpoint will sign from the region, but use the global endpoint
+                AWSSecurityTokenServiceClientBuilder
+                    .standard()
+                    .withCredentials(new DefaultAWSCredentialsProviderChain)
+                    .withRegion(chosenRegion)
+                    .build()
+            )
             val assumeRoleResult = stsClient.assumeRole(
                 new AssumeRoleRequest()
                     .withRoleSessionName("DynamoDBAssumed")
