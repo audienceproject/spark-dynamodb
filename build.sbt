@@ -33,8 +33,68 @@ libraryDependencies ++= {
     )
 }
 
+libraryDependencies += "com.almworks.sqlite4java" % "sqlite4java" % "1.0.392" % "test"
+
+retrieveManaged := true
+
 fork in Test := true
-javaOptions in Test ++= Seq("-Djava.library.path=./lib/sqlite4java", "-Daws.dynamodb.endpoint=http://localhost:8000")
+
+val libManaged = "lib_managed"
+val libManagedSqlite = s"${libManaged}_sqlite4java"
+
+javaOptions in Test ++= Seq(s"-Djava.library.path=./$libManagedSqlite", "-Daws.dynamodb.endpoint=http://localhost:8000")
+
+/**
+  * Put all sqlite4java dependencies in [[libManagedSqlite]] for easy reference when configuring java.library.path.
+  */
+Test / resourceGenerators += Def.task {
+    import java.nio.file.{Files, Path}
+    import java.util.function.Predicate
+    import java.util.stream.Collectors
+    import scala.collection.JavaConverters._
+
+    def log(msg: Any) = println(s"[℣₳ℒ𐎅] $msg") //stand out in the crowd
+
+    val theOnesWeLookFor = Set(
+        "libsqlite4java-linux-amd64-1.0.392.so",
+        "libsqlite4java-linux-i386-1.0.392.so ",
+        "libsqlite4java-osx-1.0.392.dylib     ",
+        "sqlite4java-1.0.392.jar              ",
+        "sqlite4java-win32-x64-1.0.392.dll    ",
+        "sqlite4java-win32-x86-1.0.392.dll    "
+    ).map(_.trim)
+
+    val isOneOfTheOnes = new Predicate[Path] {
+        override def test(p: Path) = theOnesWeLookFor exists (p endsWith _)
+    }
+
+    val theOnesWeCouldFind: Set[Path] = Files
+        .walk(new File(libManaged).toPath)
+        .filter(isOneOfTheOnes)
+        .collect(Collectors.toSet[Path])
+        .asScala.toSet
+
+    theOnesWeCouldFind foreach { path =>
+        log(s"found: ${path.toFile.getName}")
+    }
+
+    assert(theOnesWeCouldFind.size == theOnesWeLookFor.size)
+
+    val libManagedSqliteDir = new File(s"$libManagedSqlite")
+    sbt.IO delete libManagedSqliteDir
+    sbt.IO createDirectory libManagedSqliteDir
+    log(libManagedSqliteDir.getAbsolutePath)
+
+    theOnesWeCouldFind
+        .map { path =>
+            val source: File = path.toFile
+            val target: File = libManagedSqliteDir / source.getName
+            log(s"copying from $source to $target")
+            sbt.IO.copyFile(source, target)
+            target
+        }
+        .toSeq
+}.taskValue
 
 /**
   * Maven specific settings for publishing to Maven central.
