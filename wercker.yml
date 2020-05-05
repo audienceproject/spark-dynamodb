@@ -8,12 +8,17 @@ build:
     steps:
     - script:
           name: Compile
-          code: |
-              sbt clean compile
+          code: sbt clean compile
+    - audienceproject/aws-cli-assume-role@1.0.2:
+        aws-access-key-id: $AWS_ACCESS_KEY
+        aws-secret-access-key: $AWS_SECRET_KEY
+        role-arn: arn:aws:iam::$AWS_ACCOUNT_ID:role/build-$WERCKER_GIT_REPOSITORY
+    - script:
+          name: Test
+          code: sbt clean compile test
     - script:
           name: Clean again
-          code: |
-              sbt clean
+          code: sbt clean
 
 publish-snapshot:
     steps:
