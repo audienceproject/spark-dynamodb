@@ -53,7 +53,7 @@ Test / resourceGenerators += Def.task {
     import java.util.stream.Collectors
     import scala.collection.JavaConverters._
 
-    def log(msg: Any) = println(s"[℣₳ℒ𐎅] $msg") //stand out in the crowd
+    def log(msg: Any): Unit = println(s"[℣₳ℒ𐎅] $msg") //stand out in the crowd
 
     val theOnesWeLookFor = Set(
         "libsqlite4java-linux-amd64-1.0.392.so",
