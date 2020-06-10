@@ -21,7 +21,7 @@
 package com.audienceproject.spark.dynamodb.connector
 
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.auth.{AWSStaticCredentialsProvider, BasicSessionCredentials, DefaultAWSCredentialsProviderChain}
+import com.amazonaws.auth.{AWSCredentialsProvider, AWSStaticCredentialsProvider, BasicSessionCredentials, DefaultAWSCredentialsProviderChain}
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB, ItemCollection, ScanOutcome}
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDB, AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder, AmazonDynamoDBClientBuilder}
@@ -33,14 +33,16 @@ private[dynamodb] trait DynamoConnector {
 
     @transient private lazy val properties = sys.props
 
-    def getDynamoDB(region: Option[String] = None, roleArn: Option[String] = None): DynamoDB = {
-        val client: AmazonDynamoDB = getDynamoDBClient(region, roleArn)
+    def getDynamoDB(region: Option[String] = None, roleArn: Option[String] = None, providerClassName: Option[String] = None): DynamoDB = {
+        val client: AmazonDynamoDB = getDynamoDBClient(region, roleArn, providerClassName)
         new DynamoDB(client)
     }
 
-    private def getDynamoDBClient(region: Option[String] = None, roleArn: Option[String] = None): AmazonDynamoDB = {
+    private def getDynamoDBClient(region: Option[String] = None,
+                                  roleArn: Option[String] = None,
+                                  providerClassName: Option[String]): AmazonDynamoDB = {
         val chosenRegion = region.getOrElse(properties.getOrElse("aws.dynamodb.region", "us-east-1"))
-        val credentials = getCredentials(chosenRegion, roleArn)
+        val credentials = getCredentials(chosenRegion, roleArn, providerClassName)
 
         properties.get("aws.dynamodb.endpoint").map(endpoint => {
             AmazonDynamoDBClientBuilder.standard()
@@ -55,9 +57,11 @@ private[dynamodb] trait DynamoConnector {
         )
     }
 
-    def getDynamoDBAsyncClient(region: Option[String] = None, roleArn: Option[String] = None): AmazonDynamoDBAsync = {
+    def getDynamoDBAsyncClient(region: Option[String] = None,
+                               roleArn: Option[String] = None,
+                               providerClassName: Option[String] = None): AmazonDynamoDBAsync = {
         val chosenRegion = region.getOrElse(properties.getOrElse("aws.dynamodb.region", "us-east-1"))
-        val credentials = getCredentials(chosenRegion, roleArn)
+        val credentials = getCredentials(chosenRegion, roleArn, providerClassName)
 
         properties.get("aws.dynamodb.endpoint").map(endpoint => {
             AmazonDynamoDBAsyncClientBuilder.standard()
@@ -73,10 +77,15 @@ private[dynamodb] trait DynamoConnector {
     }
 
     /**
-      * Get credentials from a passed in arn or from profile or return the default credential provider
-      **/
-    private def getCredentials(chosenRegion: String, roleArn: Option[String]) = {
-        roleArn.map(arn => {
+     * Get credentials from an instantiated object of the class name given
+     * or a passed in arn
+     * or from profile
+     * or return the default credential provider
+     **/
+    private def getCredentials(chosenRegion: String, roleArn: Option[String], providerClassName: Option[String]) = {
+        providerClassName.map(providerClass => {
+            Class.forName(providerClass).newInstance.asInstanceOf[AWSCredentialsProvider]
+        }).orElse(roleArn.map(arn => {
             val stsClient = properties.get("aws.sts.endpoint").map(endpoint => {
                 AWSSecurityTokenServiceClientBuilder
                     .standard()
@@ -103,7 +112,7 @@ private[dynamodb] trait DynamoConnector {
                 stsCredentials.getSessionToken
             )
             new AWSStaticCredentialsProvider(assumeCreds)
-        }).orElse(properties.get("aws.profile").map(new ProfileCredentialsProvider(_)))
+        })).orElse(properties.get("aws.profile").map(new ProfileCredentialsProvider(_)))
             .getOrElse(new DefaultAWSCredentialsProviderChain)
     }
 
