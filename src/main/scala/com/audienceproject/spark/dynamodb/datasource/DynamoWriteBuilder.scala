@@ -20,25 +20,20 @@
   */
 package com.audienceproject.spark.dynamodb.datasource
 
-import com.amazonaws.services.dynamodbv2.document.DynamoDB
-import com.audienceproject.shaded.google.common.util.concurrent.RateLimiter
-import com.audienceproject.spark.dynamodb.connector.{ColumnSchema, TableConnector}
-import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.sources.v2.writer.{DataWriter, WriterCommitMessage}
+import com.audienceproject.spark.dynamodb.connector.TableConnector
+import org.apache.spark.sql.connector.write._
+import org.apache.spark.sql.types.StructType
 
-class DynamoUpdateWriter(columnSchema: ColumnSchema,
-                         connector: TableConnector,
-                         client: DynamoDB)
-    extends DataWriter[InternalRow] {
+class DynamoWriteBuilder(connector: TableConnector, parameters: Map[String, String], schema: StructType)
+    extends WriteBuilder {
 
-    private val rateLimiter = RateLimiter.create(connector.writeLimit)
+    override def buildForBatch(): BatchWrite = new BatchWrite {
+        override def createBatchWriterFactory(info: PhysicalWriteInfo): DataWriterFactory =
+            new DynamoWriterFactory(connector, parameters, schema)
 
-    override def write(record: InternalRow): Unit = {
-        connector.updateItem(columnSchema, record)(client, rateLimiter)
+        override def commit(messages: Array[WriterCommitMessage]): Unit = {}
+
+        override def abort(messages: Array[WriterCommitMessage]): Unit = {}
     }
-
-    override def commit(): WriterCommitMessage = new WriterCommitMessage {}
-
-    override def abort(): Unit = {}
 
 }

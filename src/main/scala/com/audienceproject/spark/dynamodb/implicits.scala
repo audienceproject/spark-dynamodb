@@ -70,7 +70,10 @@ object implicits {
     implicit class DynamoDBDataFrameWriter[T](writer: DataFrameWriter[T]) {
 
         def dynamodb(tableName: String): Unit =
-            writer.format("com.audienceproject.spark.dynamodb.datasource").option("tableName", tableName).save()
+            writer.format("com.audienceproject.spark.dynamodb.datasource")
+                .mode(SaveMode.Append)
+                .option("tableName", tableName)
+                .save()
 
     }
 

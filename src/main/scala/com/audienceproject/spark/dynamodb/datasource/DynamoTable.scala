@@ -22,67 +22,61 @@ package com.audienceproject.spark.dynamodb.datasource
 
 import java.util
 
-import com.audienceproject.spark.dynamodb.connector.{FilterPushdown, TableConnector, TableIndexConnector}
-import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.sources.Filter
-import org.apache.spark.sql.sources.v2.reader._
-import org.apache.spark.sql.sources.v2.reader.partitioning.Partitioning
+import com.audienceproject.spark.dynamodb.connector.{TableConnector, TableIndexConnector}
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.connector.catalog._
+import org.apache.spark.sql.connector.read.ScanBuilder
+import org.apache.spark.sql.connector.write.{LogicalWriteInfo, WriteBuilder}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.util.CaseInsensitiveStringMap
+import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 
-class DynamoDataSourceReader(parallelism: Int,
-                             parameters: Map[String, String],
-                             userSchema: Option[StructType] = None)
-    extends DataSourceReader
-        with SupportsPushDownRequiredColumns
-        with SupportsPushDownFilters
-        with SupportsReportPartitioning {
+class DynamoTable(options: CaseInsensitiveStringMap,
+                  userSchema: Option[StructType] = None)
+    extends Table
+        with SupportsRead
+        with SupportsWrite {
 
-    private val tableName = parameters("tablename")
-    private val indexName = parameters.get("indexName")
+    private val logger = LoggerFactory.getLogger(this.getClass)
 
-    private val dynamoConnector =
-        if (indexName.isDefined) new TableIndexConnector(tableName, indexName.get, parallelism, parameters)
-        else new TableConnector(tableName, parallelism, parameters)
+    private val dynamoConnector = {
+        val indexName = Option(options.get("indexname"))
+        val defaultParallelism = Option(options.get("defaultparallelism")).map(_.toInt).getOrElse(getDefaultParallelism)
+        val optionsMap = Map(options.asScala.toSeq: _*)
 
-    private var acceptedFilters: Array[Filter] = Array.empty
-    private var currentSchema: StructType = _
-
-    override val outputPartitioning: Partitioning = new OutputPartitioning(dynamoConnector.totalSegments)
-
-    override def readSchema(): StructType = {
-        if (currentSchema == null)
-            currentSchema = userSchema.getOrElse(inferSchema())
-        currentSchema
+        if (indexName.isDefined) new TableIndexConnector(name(), indexName.get, defaultParallelism, optionsMap)
+        else new TableConnector(name(), defaultParallelism, optionsMap)
     }
 
-    override def planInputPartitions(): util.List[InputPartition[InternalRow]] = {
-        val inputPartitions = new util.ArrayList[InputPartition[InternalRow]]
-        for (partitionIndex <- 0 until dynamoConnector.totalSegments) {
-            inputPartitions.add(new ScanPartition(readSchema(), partitionIndex, dynamoConnector, acceptedFilters))
+    override def name(): String = options.get("tablename")
+
+    override def schema(): StructType = userSchema.getOrElse(inferSchema())
+
+    override def capabilities(): util.Set[TableCapability] =
+        Set(TableCapability.BATCH_READ, TableCapability.BATCH_WRITE, TableCapability.ACCEPT_ANY_SCHEMA).asJava
+
+    override def newScanBuilder(options: CaseInsensitiveStringMap): ScanBuilder = {
+        new DynamoScanBuilder(dynamoConnector, schema())
+    }
+
+    override def newWriteBuilder(info: LogicalWriteInfo): WriteBuilder = {
+        val parameters = Map(info.options().asScala.toSeq: _*)
+        dynamoConnector match {
+            case tableConnector: TableConnector => new DynamoWriteBuilder(tableConnector, parameters, info.schema())
+            case _ => throw new RuntimeException("Unable to write to a GSI, please omit `indexName` option.")
         }
-        inputPartitions
     }
 
-    override def pruneColumns(requiredSchema: StructType): Unit = {
-        val schema = readSchema()
-        val keyFields = Seq(Some(dynamoConnector.keySchema.hashKeyName), dynamoConnector.keySchema.rangeKeyName).flatten
-            .flatMap(keyName => schema.fields.find(_.name == keyName))
-        val requiredFields = keyFields ++ requiredSchema.fields
-        val newFields = readSchema().fields.filter(requiredFields.contains)
-        currentSchema = StructType(newFields)
-    }
-
-    override def pushFilters(filters: Array[Filter]): Array[Filter] = {
-        if (dynamoConnector.filterPushdownEnabled) {
-            val (acceptedFilters, postScanFilters) = FilterPushdown.acceptFilters(filters)
-            this.acceptedFilters = acceptedFilters
-            postScanFilters // Return filters that need to be evaluated after scanning.
-        } else filters
-    }
-
-    override def pushedFilters(): Array[Filter] = acceptedFilters
+    private def getDefaultParallelism: Int =
+        SparkSession.getActiveSession match {
+            case Some(spark) => spark.sparkContext.defaultParallelism
+            case None =>
+                logger.warn("Unable to read defaultParallelism from SparkSession." +
+                    " Parallelism will be 1 unless overwritten with option `defaultParallelism`")
+                1
+        }
 
     private def inferSchema(): StructType = {
         val inferenceItems =

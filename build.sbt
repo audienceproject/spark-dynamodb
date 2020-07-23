@@ -2,13 +2,11 @@ organization := "com.audienceproject"
 
 name := "spark-dynamodb"
 
-version := "1.0.5"
+version := "1.1.0"
 
 description := "Plug-and-play implementation of an Apache Spark custom data source for AWS DynamoDB."
 
-scalaVersion := "2.11.12"
-
-crossScalaVersions := Seq("2.11.12", "2.12.7")
+scalaVersion := "2.12.12"
 
 compileOrder := CompileOrder.JavaThenScala
 
@@ -18,7 +16,7 @@ libraryDependencies += "com.amazonaws" % "aws-java-sdk-sts" % "1.11.678"
 libraryDependencies += "com.amazonaws" % "aws-java-sdk-dynamodb" % "1.11.678"
 libraryDependencies += "com.amazonaws" % "DynamoDBLocal" % "[1.11,2.0)" % "test" exclude("com.google.guava", "guava")
 
-libraryDependencies += "org.apache.spark" %% "spark-sql" % "2.4.4" % "provided"
+libraryDependencies += "org.apache.spark" %% "spark-sql" % "3.0.0" % "provided"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test"
 
@@ -53,7 +51,7 @@ Test / resourceGenerators += Def.task {
     import java.util.stream.Collectors
     import scala.collection.JavaConverters._
 
-    def log(msg: Any) = println(s"[℣₳ℒ𐎅] $msg") //stand out in the crowd
+    def log(msg: Any): Unit = println(s"[℣₳ℒ𐎅] $msg") //stand out in the crowd
 
     val theOnesWeLookFor = Set(
         "libsqlite4java-linux-amd64-1.0.392.so",
