@@ -20,22 +20,29 @@
   */
 package com.audienceproject.spark.dynamodb.datasource
 
-import com.audienceproject.spark.dynamodb.connector.TableConnector
-import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.sources.v2.writer.{DataSourceWriter, DataWriterFactory, WriterCommitMessage}
+import com.audienceproject.spark.dynamodb.connector.DynamoConnector
+import org.apache.spark.sql.connector.read._
+import org.apache.spark.sql.connector.read.partitioning.Partitioning
+import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType
 
-class DynamoDataSourceWriter(parallelism: Int, parameters: Map[String, String], schema: StructType)
-    extends DataSourceWriter {
+class DynamoBatchReader(connector: DynamoConnector,
+                        filters: Array[Filter],
+                        schema: StructType)
+    extends Scan with Batch with SupportsReportPartitioning {
 
-    private val tableName = parameters("tablename")
-    private val dynamoConnector = new TableConnector(tableName, parallelism, parameters)
+    override def readSchema(): StructType = schema
 
-    override def createWriterFactory(): DataWriterFactory[InternalRow] =
-        new DynamoWriterFactory(dynamoConnector, parameters, schema)
+    override def toBatch: Batch = this
 
-    override def commit(messages: Array[WriterCommitMessage]): Unit = {}
+    override def planInputPartitions(): Array[InputPartition] = {
+        val requiredColumns = schema.map(_.name)
+        Array.tabulate(connector.totalSegments)(new ScanPartition(_, requiredColumns, filters))
+    }
 
-    override def abort(messages: Array[WriterCommitMessage]): Unit = {}
+    override def createReaderFactory(): PartitionReaderFactory =
+        new DynamoReaderFactory(connector, schema)
+
+    override val outputPartitioning: Partitioning = new OutputPartitioning(connector.totalSegments)
 
 }

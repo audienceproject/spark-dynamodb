@@ -24,14 +24,14 @@ import com.amazonaws.services.dynamodbv2.document.DynamoDB
 import com.audienceproject.shaded.google.common.util.concurrent.RateLimiter
 import com.audienceproject.spark.dynamodb.connector.{ColumnSchema, TableConnector}
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.sources.v2.writer.{DataWriter, WriterCommitMessage}
+import org.apache.spark.sql.connector.write.{DataWriter, WriterCommitMessage}
 
 import scala.collection.mutable.ArrayBuffer
 
-class DynamoBatchWriter(batchSize: Int,
-                        columnSchema: ColumnSchema,
-                        connector: TableConnector,
-                        client: DynamoDB)
+class DynamoDataWriter(batchSize: Int,
+                       columnSchema: ColumnSchema,
+                       connector: TableConnector,
+                       client: DynamoDB)
     extends DataWriter[InternalRow] {
 
     protected val buffer: ArrayBuffer[InternalRow] = new ArrayBuffer[InternalRow](batchSize)
@@ -50,6 +50,8 @@ class DynamoBatchWriter(batchSize: Int,
     }
 
     override def abort(): Unit = {}
+
+    override def close(): Unit = client.shutdown()
 
     protected def flush(): Unit = {
         if (buffer.nonEmpty) {

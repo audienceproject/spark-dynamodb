@@ -20,53 +20,28 @@
   */
 package com.audienceproject.spark.dynamodb.datasource
 
-import java.util.Optional
+import java.util
 
+import org.apache.spark.sql.connector.catalog.{Table, TableProvider}
+import org.apache.spark.sql.connector.expressions.Transform
 import org.apache.spark.sql.sources.DataSourceRegister
-import org.apache.spark.sql.sources.v2.reader.DataSourceReader
-import org.apache.spark.sql.sources.v2.writer.DataSourceWriter
-import org.apache.spark.sql.sources.v2.{DataSourceOptions, ReadSupport, WriteSupport}
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{SaveMode, SparkSession}
-import org.slf4j.LoggerFactory
+import org.apache.spark.sql.util.CaseInsensitiveStringMap
 
-import scala.collection.JavaConverters._
+class DefaultSource extends TableProvider with DataSourceRegister {
 
-class DefaultSource extends ReadSupport with WriteSupport with DataSourceRegister {
-
-    private val logger = LoggerFactory.getLogger(this.getClass)
-
-    override def createReader(schema: StructType, options: DataSourceOptions): DataSourceReader = {
-        val optionsMap = options.asMap().asScala
-        val defaultParallelism = optionsMap.get("defaultparallelism").map(_.toInt).getOrElse(getDefaultParallelism)
-        new DynamoDataSourceReader(defaultParallelism, Map(optionsMap.toSeq: _*), Some(schema))
+    override def getTable(schema: StructType,
+                          partitioning: Array[Transform],
+                          properties: util.Map[String, String]): Table = {
+        new DynamoTable(new CaseInsensitiveStringMap(properties), Some(schema))
     }
 
-    override def createReader(options: DataSourceOptions): DataSourceReader = {
-        val optionsMap = options.asMap().asScala
-        val defaultParallelism = optionsMap.get("defaultparallelism").map(_.toInt).getOrElse(getDefaultParallelism)
-        new DynamoDataSourceReader(defaultParallelism, Map(optionsMap.toSeq: _*))
+    override def inferSchema(options: CaseInsensitiveStringMap): StructType = {
+        new DynamoTable(options).schema()
     }
 
-    override def createWriter(writeUUID: String, schema: StructType, mode: SaveMode, options: DataSourceOptions): Optional[DataSourceWriter] = {
-        if (mode == SaveMode.Append || mode == SaveMode.Overwrite)
-            throw new IllegalArgumentException(s"DynamoDB data source does not support save modes ($mode)." +
-                " Please use option 'update' (true | false) to differentiate between append/overwrite and append/update behavior.")
-        val optionsMap = options.asMap().asScala
-        val defaultParallelism = optionsMap.get("defaultparallelism").map(_.toInt).getOrElse(getDefaultParallelism)
-        val writer = new DynamoDataSourceWriter(defaultParallelism, Map(optionsMap.toSeq: _*), schema)
-        Optional.of(writer)
-    }
+    override def supportsExternalMetadata(): Boolean = true
 
     override def shortName(): String = "dynamodb"
-
-    private def getDefaultParallelism: Int =
-        SparkSession.getActiveSession match {
-            case Some(spark) => spark.sparkContext.defaultParallelism
-            case None =>
-                logger.warn("Unable to read defaultParallelism from SparkSession." +
-                    " Parallelism will be 1 unless overwritten with option `defaultParallelism`")
-                1
-        }
 
 }

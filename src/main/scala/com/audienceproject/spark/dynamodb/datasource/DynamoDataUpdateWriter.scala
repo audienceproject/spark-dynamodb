@@ -20,10 +20,27 @@
   */
 package com.audienceproject.spark.dynamodb.datasource
 
-import org.apache.spark.sql.connector.read.InputPartition
-import org.apache.spark.sql.sources.Filter
+import com.amazonaws.services.dynamodbv2.document.DynamoDB
+import com.audienceproject.shaded.google.common.util.concurrent.RateLimiter
+import com.audienceproject.spark.dynamodb.connector.{ColumnSchema, TableConnector}
+import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.connector.write.{DataWriter, WriterCommitMessage}
 
-class ScanPartition(val partitionIndex: Int,
-                    val requiredColumns: Seq[String],
-                    val filters: Array[Filter])
-    extends InputPartition
+class DynamoDataUpdateWriter(columnSchema: ColumnSchema,
+                             connector: TableConnector,
+                             client: DynamoDB)
+    extends DataWriter[InternalRow] {
+
+    private val rateLimiter = RateLimiter.create(connector.writeLimit)
+
+    override def write(record: InternalRow): Unit = {
+        connector.updateItem(columnSchema, record)(client, rateLimiter)
+    }
+
+    override def commit(): WriterCommitMessage = new WriterCommitMessage {}
+
+    override def abort(): Unit = {}
+
+    override def close(): Unit = client.shutdown()
+
+}
