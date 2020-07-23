@@ -6,6 +6,7 @@ https://www.audienceproject.com/blog/tech/sparkdynamodb-using-aws-dynamodb-data-
 
 ## News
 
+* 2020-07-23: Releasing version 1.1.0 which supports Spark 3.0.0 and Scala 2.12. Future releases will no longer be compatible with Scala 2.11 and Spark 2.x.x.
 * 2020-04-28: Releasing version 1.0.4. Includes support for assuming AWS roles through custom STS endpoint (credits @jhulten).
 * 2020-04-09: We are releasing version 1.0.3 of the Spark+DynamoDB connector. Added option to `delete` records (thank you @rhelmstetter). Fixes (thank you @juanyunism for #46).
 * 2019-11-25: We are releasing version 1.0.0 of the Spark+DynamoDB connector, which is based on the Spark Data Source V2 API. Out-of-the-box throughput calculations, parallelism and partition planning should now be more reliable. We have also pulled out the external dependency on Guava, which was causing a lot of compatibility issues.
