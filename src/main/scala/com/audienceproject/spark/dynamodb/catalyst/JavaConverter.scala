@@ -37,6 +37,8 @@ object JavaConverter {
             case MapType(keyType, valueType, _) => convertMap(row.getMap(index), keyType, valueType)
             case StructType(fields) => convertStruct(row.getStruct(index, fields.length), fields)
             case StringType => row.getString(index)
+            case LongType => row.getLong(index)
+            case t: DecimalType => row.getDecimal(index, t.precision, t.scale).toBigDecimal
             case _ => row.get(index, elementType)
         }
     }
