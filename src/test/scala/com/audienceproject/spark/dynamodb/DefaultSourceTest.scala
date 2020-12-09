@@ -57,10 +57,6 @@ class DefaultSourceTest extends AbstractInMemoryTest {
 
     test("Test of attribute name alias") {
         import spark.implicits._
-        spark.read.dynamodb("TestFruit").printSchema()
-        spark.read.dynamodb("TestFruit").show()
-        spark.read.dynamodbAs[TestFruit]("TestFruit").printSchema()
-        spark.read.dynamodbAs[TestFruit]("TestFruit").show()
         val itemApple = spark.read.dynamodbAs[TestFruit]("TestFruit")
             .filter($"primaryKey" === "apple")
             .takeAsList(1).get(0)
