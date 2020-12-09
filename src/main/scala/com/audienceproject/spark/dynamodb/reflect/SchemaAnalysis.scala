@@ -22,7 +22,7 @@ package com.audienceproject.spark.dynamodb.reflect
 
 import com.audienceproject.spark.dynamodb.attribute
 import org.apache.spark.sql.catalyst.ScalaReflection
-import org.apache.spark.sql.types.{Metadata, MetadataBuilder, StructField, StructType}
+import org.apache.spark.sql.types.{StructField, StructType}
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.{universe => ru}
@@ -32,35 +32,37 @@ import scala.reflect.runtime.{universe => ru}
   */
 private[dynamodb] object SchemaAnalysis {
 
-    def apply[T <: Product : ClassTag : ru.TypeTag]: StructType = {
+    def apply[T <: Product : ClassTag : ru.TypeTag]: (StructType, Map[String, String]) = {
 
         val runtimeMirror = ru.runtimeMirror(getClass.getClassLoader)
 
         val classObj = scala.reflect.classTag[T].runtimeClass
         val classSymbol = runtimeMirror.classSymbol(classObj)
 
-        val sparkFields = classSymbol.primaryConstructor.typeSignature.paramLists.head.map(field => {
-            val sparkType = ScalaReflection.schemaFor(field.typeSignature).dataType
+        val params = classSymbol.primaryConstructor.typeSignature.paramLists.head
+        val (sparkFields, aliasMap) = params.foldLeft((List.empty[StructField], Map.empty[String, String]))({
+            case ((list, map), field) =>
+                val sparkType = ScalaReflection.schemaFor(field.typeSignature).dataType
 
-            // Black magic from here:
-            // https://stackoverflow.com/questions/23046958/accessing-an-annotation-value-in-scala
-            val attrName = field.annotations.collectFirst({
-                case ann: ru.AnnotationApi if ann.tree.tpe =:= ru.typeOf[attribute] =>
-                    ann.tree.children.tail.collectFirst({
-                        case ru.Literal(ru.Constant(name: String)) => name
-                    })
-            }).flatten
+                // Black magic from here:
+                // https://stackoverflow.com/questions/23046958/accessing-an-annotation-value-in-scala
+                val attrName = field.annotations.collectFirst({
+                    case ann: ru.AnnotationApi if ann.tree.tpe =:= ru.typeOf[attribute] =>
+                        ann.tree.children.tail.collectFirst({
+                            case ru.Literal(ru.Constant(name: String)) => name
+                        })
+                }).flatten
 
-            if (attrName.isDefined) {
-                val metadata = new MetadataBuilder().putString("alias", field.name.toString).build()
-                StructField(attrName.get, sparkType, nullable = true, metadata)
-            } else {
-                StructField(field.name.toString, sparkType, nullable = true, Metadata.empty)
-            }
+                if (attrName.isDefined) {
+                    val sparkField = StructField(attrName.get, sparkType, nullable = true)
+                    (list :+ sparkField, map + (attrName.get -> field.name.toString))
+                } else {
+                    val sparkField = StructField(field.name.toString, sparkType, nullable = true)
+                    (list :+ sparkField, map)
+                }
         })
 
-        StructType(sparkFields)
-
+        (StructType(sparkFields), aliasMap)
     }
 
 }

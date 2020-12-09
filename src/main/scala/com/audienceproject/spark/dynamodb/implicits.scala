@@ -24,7 +24,6 @@ import com.audienceproject.spark.dynamodb.reflect.SchemaAnalysis
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.StructField
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
@@ -41,28 +40,29 @@ object implicits {
 
         def dynamodbAs[T <: Product : ClassTag : TypeTag](tableName: String): Dataset[T] = {
             implicit val encoder: Encoder[T] = ExpressionEncoder()
-            getColumnsAlias(getDynamoDBSource(tableName)
-                .schema(SchemaAnalysis[T]).load()).as
+            val (schema, aliasMap) = SchemaAnalysis[T]
+            getColumnsAlias(getDynamoDBSource(tableName).schema(schema).load(), aliasMap).as
         }
 
         def dynamodbAs[T <: Product : ClassTag : TypeTag](tableName: String, indexName: String): Dataset[T] = {
             implicit val encoder: Encoder[T] = ExpressionEncoder()
-            getColumnsAlias(getDynamoDBSource(tableName)
-                .option("indexName", indexName)
-                .schema(SchemaAnalysis[T]).load()).as
+            val (schema, aliasMap) = SchemaAnalysis[T]
+            getColumnsAlias(
+                getDynamoDBSource(tableName).option("indexName", indexName).schema(schema).load(), aliasMap).as
         }
 
         private def getDynamoDBSource(tableName: String): DataFrameReader =
             reader.format("com.audienceproject.spark.dynamodb.datasource").option("tableName", tableName)
 
-        private def getColumnsAlias(dataFrame: DataFrame): DataFrame = {
-            val columnsAlias = dataFrame.schema.collect({
-                case StructField(name, _, _, metadata) if metadata.contains("alias") =>
-                    col(name).as(metadata.getString("alias"))
-                case StructField(name, _, _, _) =>
-                    col(name)
-            })
-            dataFrame.select(columnsAlias: _*)
+        private def getColumnsAlias(dataFrame: DataFrame, aliasMap: Map[String, String]): DataFrame = {
+            if (aliasMap.isEmpty) dataFrame
+            else {
+                val columnsAlias = dataFrame.columns.map({
+                    case name if aliasMap.isDefinedAt(name) => col(name) as aliasMap(name)
+                    case name => col(name)
+                })
+                dataFrame.select(columnsAlias: _*)
+            }
         }
 
     }
