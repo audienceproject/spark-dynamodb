@@ -80,7 +80,7 @@ class DynamoTable(options: CaseInsensitiveStringMap,
 
     private def inferSchema(): StructType = {
         val inferenceItems =
-            if (dynamoConnector.nonEmpty) dynamoConnector.scan(0, Seq.empty, Seq.empty).firstPage().getLowLevelResult.getItems.asScala
+            if (dynamoConnector.nonEmpty && options.getBoolean("inferSchema",true)) dynamoConnector.scan(0, Seq.empty, Seq.empty).firstPage().getLowLevelResult.getItems.asScala
             else Seq.empty
 
         val typeMapping = inferenceItems.foldLeft(Map[String, DataType]())({
