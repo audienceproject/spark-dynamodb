@@ -2,7 +2,7 @@ organization := "com.audienceproject"
 
 name := "spark-dynamodb"
 
-version := "1.1.2"
+version := "1.1.3"
 
 description := "Plug-and-play implementation of an Apache Spark custom data source for AWS DynamoDB."
 
